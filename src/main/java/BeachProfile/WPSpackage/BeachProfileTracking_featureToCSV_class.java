@@ -6,7 +6,7 @@ import org.geotools.feature.FeatureCollection;
 import org.opengis.feature.simple.*;
 import java.awt.image.BufferedImage;
 
-import com.vividsolutions.jts.geom.*;
+import org.locationtech.jts.geom.*;
 
 import tools.BeachProfileTracking;
 

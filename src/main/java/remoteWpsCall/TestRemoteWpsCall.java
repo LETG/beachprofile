@@ -2,15 +2,13 @@ package remoteWpsCall;
 
 import java.util.ArrayList;
 
-import com.vividsolutions.jts.io.ParseException;
-import com.vividsolutions.jts.geom.*;
+import org.locationtech.jts.geom.*;
+
 
 public class TestRemoteWpsCall {
 
 	public static void main(String[] args) {
 
-
-		try {
 			Integer bbb;
 			ArrayList<Object> inputs= new ArrayList<Object>();
 			Integer aaa1Cp = 1 ;
@@ -36,11 +34,6 @@ public class TestRemoteWpsCall {
 			
             double ddd = Double.parseDouble(resultS);
 			System.out.println(ddd);
-			
-			
-		} catch (ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	
 	}
 }

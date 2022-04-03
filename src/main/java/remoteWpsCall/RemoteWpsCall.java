@@ -14,8 +14,8 @@ import org.geotools.data.wps.request.*;
 import org.geotools.data.wps.response.*;
 import org.geotools.ows.ServiceException;
 
-import com.vividsolutions.jts.io.*;
-import com.vividsolutions.jts.geom.*;
+import org.locationtech.jts.io.*;
+import org.locationtech.jts.geom.*;
 
 public class RemoteWpsCall {
 	
@@ -29,7 +29,6 @@ public class RemoteWpsCall {
 		this.theWpsId = aWpsId;
 		try {
 			url = new URL(ServerName+"?service=WPS&request=GetCapabilities");
-//			try {
 				try {
 					wps = new WebProcessingService(url);
 				} catch (ServiceException e) {
@@ -60,14 +59,14 @@ public class RemoteWpsCall {
 			return result;
 	}
 	
-	public String Request(ArrayList<Object> theWpsInputs) throws ParseException {
+	public String Request(ArrayList<Object> theWpsInputs) {
 
 		// creation requete de description
 		DescribeProcessRequest descRequest = wps.createDescribeProcessRequest();
 		descRequest.setIdentifier(theWpsId); 
 		
 		try {
-			// creation type de requete et type d'entr�es
+			// creation type de requete et type d'entrées
 			DescribeProcessResponse descResponse = wps.issueRequest(descRequest);
 			ProcessDescriptionsType T_processDesc = descResponse.getProcessDesc();
 			ProcessDescriptionType T_Processdescription = (ProcessDescriptionType) T_processDesc.getProcessDescription().get(0);
@@ -77,11 +76,11 @@ public class RemoteWpsCall {
 				T_InputDescription[i] = (InputDescriptionType) T_Processdescription.getDataInputs().getInput().get(i); 
 			} 	        	      
 	        
-	        // cr�ation des requetes d'execution			
+	        // création des requetes d'execution			
 		    ExecuteProcessRequest exeRequest = wps.createExecuteProcessRequest();
 		    exeRequest.setIdentifier(theWpsId);
 		    
-	        // cr�ation des entr�es pour les requetes d'execution			    
+	        // création des entrées pour les requetes d'execution			    
             DataType[] T_input = new DataType[theWpsInputs.size()];
           
             List<List<EObject>> listT_Input = new ArrayList<List<EObject>>();

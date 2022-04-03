@@ -2,7 +2,7 @@ package remoteWpsCall;
 
 import java.io.*;
 
-import org.geotools.xml.EncoderDelegate;
+import org.geotools.xsd.EncoderDelegate;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.ext.LexicalHandler;
 
