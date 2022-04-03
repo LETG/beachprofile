@@ -1,0 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "error": "Impossible to find the CoordinateReferenceSystem of the file."
+      },
+      "id": "fid--3cfae5d_168e21aeb04_-7ffe"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "error": "Date of the feature 1 not found."
+      },
+      "id": "fid--3cfae5d_168e21aeb04_-7fff"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "error": "The feature 1 doesn't contains a Geometry of type LineString."
+      },
+      "id": "fid--3cfae5d_168e21aeb04_-8000"
+    }
+  ]
+}

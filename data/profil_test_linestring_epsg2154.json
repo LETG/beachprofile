@@ -1,0 +1,69 @@
+{
+  "type": "FeatureCollection",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "EPSG:2154"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            152028,
+            6863327,
+            1
+          ],
+          [
+            152028,
+            6863328,
+            2
+          ],
+          [
+            152028,
+            6863329,
+            -1
+          ]
+        ]
+      },
+      "properties": {
+        "site": 1,
+        "date_profil": "2019-01-10Z",
+        "rang_tete": 0
+      },
+      "id": "profil 2"
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",       
+        "coordinates": [
+          [
+            152029,
+            6863327,
+            1
+          ],
+          [
+            152029,
+            6863328,
+            1
+          ],
+          [
+            152029,
+            6863329,
+            1
+          ]
+        ]
+      },
+      "properties": {
+        "site": 1,
+        "date_profil": "2015-12-02Z",
+        "rang_tete": 0
+      },
+      "id": "profil 1"
+    }
+  ]
+}
