@@ -1,4 +1,4 @@
-package tools;
+package org.letg.beachprofile.tools;
 
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -107,7 +107,7 @@ public class FeatureCollectionValidation {
 		//if the file doesn't have any errors, do the treatment
 		if(!dfc.features().hasNext()){			
 			//do the interpolation
-			BeachProfileTracking bp = new BeachProfileTracking();
+			BeachProfileTrackingTools bp = new BeachProfileTrackingTools();
 			fcInterpolation = bp.InterpolateFeatureCollection(fc, interpolationValue);
 			if(!fcInterpolation.features().hasNext()){
 				builder.set("error", "Interpolation failed");

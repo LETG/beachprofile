@@ -1,4 +1,4 @@
-package tools;
+package org.letg.beachprofile.tools;
 
 import java.io.File;
 import java.io.FileInputStream;

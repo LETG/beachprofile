@@ -1,4 +1,4 @@
-package tools;
+package org.letg.beachprofile.tools;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -27,9 +27,9 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 
-public class BeachProfileTracking {
+public class BeachProfileTrackingTools {
 
-	public BeachProfileTracking() {}
+	public BeachProfileTrackingTools() {}
 	
 	/**
 	 * Do an interpolation for each Feature's Geometry of a FeatureCollection with an interval

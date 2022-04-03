@@ -1,4 +1,4 @@
-package BeachProfile.WPSpackage;
+package org.letg.beachprofile.wpspackage;
 
 import org.geotools.process.factory.*;
 import org.geotools.text.Text;
@@ -8,15 +8,15 @@ import java.awt.image.BufferedImage;
 
 import org.locationtech.jts.geom.*;
 
-import tools.BeachProfileTracking;
+import org.letg.beachprofile.tools.BeachProfileTrackingTools;
 
-public class BeachProfileTracking_InterpolateFeatureCollection_class extends StaticMethodsProcessFactory<BeachProfileTracking_InterpolateFeatureCollection_class> {
+public class BeachProfileTracking_InterpolateFeatureCollection extends StaticMethodsProcessFactory<BeachProfileTracking_InterpolateFeatureCollection> {
 	
-	protected static BeachProfileTracking callObject;
+	protected static BeachProfileTrackingTools callObject;
 
-	public BeachProfileTracking_InterpolateFeatureCollection_class() {
-		super(Text.text("beach profile analysis"),"BeachProfile",BeachProfileTracking_InterpolateFeatureCollection_class.class);
-		callObject = new BeachProfileTracking();
+	public BeachProfileTracking_InterpolateFeatureCollection() {
+		super(Text.text("beach profile analysis"),"BeachProfile",BeachProfileTracking_InterpolateFeatureCollection.class);
+		callObject = new BeachProfileTrackingTools();
 	}
 
 	@DescribeProcess(title="BeachProfileTracking_InterpolateFeatureCollection",description="Add a description of BeachProfileTracking_InterpolateFeatureCollection")

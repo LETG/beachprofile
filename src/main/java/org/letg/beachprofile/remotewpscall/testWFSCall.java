@@ -1,4 +1,4 @@
-package remoteWpsCall;
+package org.letg.beachprofile.remotewpscall;
 
 import java.io.File;
 import java.io.FileOutputStream;

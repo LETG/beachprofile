@@ -1,4 +1,4 @@
-package BeachProfile.WPSpackage;
+package org.letg.beachprofile.wpspackage;
 
 import java.io.IOException;
 import java.util.*;
@@ -11,24 +11,23 @@ import org.geotools.text.Text;
 import org.geotools.feature.FeatureCollection;
 import org.opengis.feature.simple.*;
 import java.awt.image.BufferedImage;
-import org.locationtech.jts.geom.*;
 
 import org.locationtech.jts.io.ParseException;
 
-import remoteWpsCall.*;
+import org.letg.beachprofile.remotewpscall.*;
 
-import tools.FeatureCollectionValidation;
-import tools.BeachProfileTracking;
+import org.letg.beachprofile.tools.FeatureCollectionValidation;
+import org.letg.beachprofile.tools.BeachProfileTrackingTools;
 
-public class BeachProfileTracking_class extends StaticMethodsProcessFactory<BeachProfileTracking_class>
+public class BeachProfileTracking extends StaticMethodsProcessFactory<BeachProfileTracking>
 {
 		protected static FeatureCollectionValidation callObject_1;
-		protected static BeachProfileTracking callObject_2;
+		protected static BeachProfileTrackingTools callObject_2;
 
-	public BeachProfileTracking_class() {
-		super(Text.text("beach profile analysis"),"BeachProfile",BeachProfileTracking_class.class);
+	public BeachProfileTracking() {
+		super(Text.text("beach profile analysis"),"BeachProfile",BeachProfileTracking.class);
 		callObject_1 = new FeatureCollectionValidation();
-		callObject_2 = new BeachProfileTracking();
+		callObject_2 = new BeachProfileTrackingTools();
 	}
 
 	@DescribeProcess(title="BeachProfileTracking",description="Workflow containing the Interpolation, SedimentaryBalance calculation and conversion to csv wps")

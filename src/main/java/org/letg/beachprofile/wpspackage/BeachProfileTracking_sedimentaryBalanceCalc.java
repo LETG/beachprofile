@@ -1,4 +1,4 @@
-package BeachProfile.WPSpackage;
+package org.letg.beachprofile.wpspackage;
 
 import org.geotools.process.factory.*;
 import org.geotools.text.Text;
@@ -8,15 +8,15 @@ import java.awt.image.BufferedImage;
 
 import org.locationtech.jts.geom.*;
 
-import tools.BeachProfileTracking;
+import org.letg.beachprofile.tools.BeachProfileTrackingTools;
 
-public class BeachProfileTracking_sedimentaryBalanceCalc_class extends StaticMethodsProcessFactory<BeachProfileTracking_sedimentaryBalanceCalc_class> {
+public class BeachProfileTracking_sedimentaryBalanceCalc extends StaticMethodsProcessFactory<BeachProfileTracking_sedimentaryBalanceCalc> {
 	
-	protected static BeachProfileTracking callObject;
+	protected static BeachProfileTrackingTools callObject;
 
-	public BeachProfileTracking_sedimentaryBalanceCalc_class() {
-		super(Text.text("beach profile analysis"),"BeachProfile",BeachProfileTracking_sedimentaryBalanceCalc_class.class);
-		callObject = new BeachProfileTracking();
+	public BeachProfileTracking_sedimentaryBalanceCalc() {
+		super(Text.text("beach profile analysis"),"BeachProfile",BeachProfileTracking_sedimentaryBalanceCalc.class);
+		callObject = new BeachProfileTrackingTools();
 	}
 
 	@DescribeProcess(title="BeachProfileTracking_sedimentaryBalanceCalc",description="Add a description of BeachProfileTracking_sedimentaryBalanceCalc")

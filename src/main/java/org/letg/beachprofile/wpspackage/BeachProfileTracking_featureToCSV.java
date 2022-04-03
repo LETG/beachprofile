@@ -1,4 +1,4 @@
-package BeachProfile.WPSpackage;
+package org.letg.beachprofile.wpspackage;
 
 import org.geotools.process.factory.*;
 import org.geotools.text.Text;
@@ -8,15 +8,15 @@ import java.awt.image.BufferedImage;
 
 import org.locationtech.jts.geom.*;
 
-import tools.BeachProfileTracking;
+import org.letg.beachprofile.tools.BeachProfileTrackingTools;
 
-public class BeachProfileTracking_featureToCSV_class extends StaticMethodsProcessFactory<BeachProfileTracking_featureToCSV_class> {
+public class BeachProfileTracking_featureToCSV extends StaticMethodsProcessFactory<BeachProfileTracking_featureToCSV> {
 	
-	protected static BeachProfileTracking callObject;
+	protected static BeachProfileTrackingTools callObject;
 
-	public BeachProfileTracking_featureToCSV_class() {
-		super(Text.text("beach profile analysis"),"BeachProfile",BeachProfileTracking_featureToCSV_class.class);
-		callObject = new BeachProfileTracking();
+	public BeachProfileTracking_featureToCSV() {
+		super(Text.text("beach profile analysis"),"BeachProfile",BeachProfileTracking_featureToCSV.class);
+		callObject = new BeachProfileTrackingTools();
 	}
 
 	@DescribeProcess(title="BeachProfileTracking_featureToCSV",description="Add a description of BeachProfileTracking_featureToCSV")
