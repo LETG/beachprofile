@@ -5,10 +5,10 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import javax.imageio.ImageIO;
-import org.geotools.data.ows.WMSCapabilities;
-import org.geotools.data.wms.WMSUtils;
-import org.geotools.data.wms.WebMapServer;
-import org.geotools.data.wms.response.GetMapResponse;
+import org.geotools.ows.wms.WMSCapabilities;
+import org.geotools.ows.wms.WMSUtils;
+import org.geotools.ows.wms.WebMapServer;
+import org.geotools.ows.wms.response.GetMapResponse;
 import org.geotools.ows.ServiceException;
 import org.xml.sax.SAXException;
 
@@ -69,8 +69,8 @@ public class WMSrequest {
 			
 			WMSCapabilities capabilities = wms.getCapabilities();
 
-			org.geotools.data.wms.request.GetMapRequest request = wms.createGetMapRequest();
-			for ( org.geotools.data.ows.Layer layer : WMSUtils.getNamedLayers(capabilities) ) {
+			org.geotools.ows.wms.request.GetMapRequest request = wms.createGetMapRequest();
+			for ( org.geotools.ows.wms.Layer layer : WMSUtils.getNamedLayers(capabilities) ) {
 				if (layer.getTitle().equals(this.layer)) {
 					request.addLayer(layer);
 				}
@@ -90,7 +90,7 @@ public class WMSrequest {
 			}
 			request.setBBox(bbox);
 			
-			for ( org.geotools.data.ows.Layer layer : WMSUtils.getNamedLayers(capabilities) ) {
+			for ( org.geotools.ows.wms.Layer layer : WMSUtils.getNamedLayers(capabilities) ) {
 				  request.addLayer(layer);
 			}
 			

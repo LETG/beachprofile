@@ -11,9 +11,9 @@ import org.geotools.text.Text;
 import org.geotools.feature.FeatureCollection;
 import org.opengis.feature.simple.*;
 import java.awt.image.BufferedImage;
-import com.vividsolutions.jts.geom.*;
+import org.locationtech.jts.geom.*;
 
-import com.vividsolutions.jts.io.ParseException;
+import org.locationtech.jts.io.ParseException;
 
 import remoteWpsCall.*;
 
