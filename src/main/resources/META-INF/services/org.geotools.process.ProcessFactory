@@ -1,5 +1,5 @@
-org.letg.beachprofile.wpspackage.BeachProfileTracking_InterpolateFeatureCollection
-org.letg.beachprofile.wpspackage.BeachProfileTracking_sedimentaryBalanceCalc
-org.letg.beachprofile.wpspackage.BeachProfileTracking_featureToCSV
-org.letg.beachprofile.tools.FeatureCollectionValidation_calculWithErrorManager
-org.letg.beachprofile.wpspackage.BeachProfileTracking
+fr.indigeo.wps.bpt.BeachProfileTracking_InterpolateFeatureCollection
+fr.indigeo.wps.bpt.BeachProfileTracking_sedimentaryBalanceCalc
+fr.indigeo.wps.bpt.BeachProfileTracking_featureToCSV
+fr.indigeo.wps.bpt.tools.FeatureCollectionValidation_calculWithErrorManager
+fr.indigeo.wps.bpt.BeachProfileTracking

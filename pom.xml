@@ -1,9 +1,9 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-	<groupId>org.letg</groupId>
-  	<artifactId>beachProfile</artifactId>
-  	<version>1.1</version>
-	<name>beachProfile</name>
+	<groupId>fr.indigeo.wps</groupId>
+  	<artifactId>beachProfileTracking</artifactId>
+  	<version>1.2</version>
+	<name>beachProfileTracking</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -11,9 +11,9 @@
 		<!-- geotools and geoserver version are linked check geotools version in geoserver notes -->
 		<geoserver.version>2.19.2</geoserver.version>
 		<geotools.version>25.2</geotools.version>
-		<maven.compiler.target>1.8</maven.compiler.target>
-   		<maven.compiler.source>1.8</maven.compiler.source>
-		<log4j.version>2.17.2</log4j.version>
+		<maven.compiler.target>11</maven.compiler.target>
+   		<maven.compiler.source>11</maven.compiler.source>
+		<log4j.version>1.2.17</log4j.version>
 	</properties>
 
 	<repositories>
@@ -50,18 +50,23 @@
 			<artifactId>gs-wps-core</artifactId>
 			<version>${geoserver.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.geotools/gt-wps -->
 		<dependency>
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-wps</artifactId>
 			<version>${geotools.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.json/json -->
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
 			<version>20220320</version>
 		</dependency>
-  	</dependencies>
+		<!-- Logger -->
+		<!-- log4j version is limited by log4j version of geoserver -->
+		<dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+	</dependencies>  
   
 </project>
