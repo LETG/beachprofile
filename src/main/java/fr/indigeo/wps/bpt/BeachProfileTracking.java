@@ -32,19 +32,14 @@ public class BeachProfileTracking extends StaticMethodsProcessFactory<BeachProfi
 		Double maxDist_wps1 = 0.0;	
 		FeatureCollection<SimpleFeatureType, SimpleFeature> result_wps1 ;
 		FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection_wps2 ;	
-		String result_wps2 = "";
-		String result;
 		fc_wps1=fc;
 		interpolationValue_wps1=interval;
 		useSmallestDistance_wps1=useSmallestDistance;
 		minDist_wps1=minDist;
 		maxDist_wps1=maxDist;
 
-
 		result_wps1 = callObject_1.calculWithErrorManager(fc_wps1,interpolationValue_wps1,useSmallestDistance_wps1,minDist_wps1,maxDist_wps1);	
 		featureCollection_wps2=result_wps1;
-		result_wps2 = callObject_2.featureToCSV(featureCollection_wps2);	
-		result=result_wps2;	
-		return result;	
+		return callObject_2.featureToJSON(featureCollection_wps2);	
 	}
 }

@@ -1,10 +1,15 @@
 package fr.indigeo.wps.bpt;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 
 import org.apache.log4j.Logger;
+import org.geotools.feature.FeatureCollection;
 import org.junit.Test;
+import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
 
 import fr.indigeo.wps.bpt.tools.BeachProfileTrackingTools;
 import fr.indigeo.wps.bpt.tools.FeatureCollectionValidation;
@@ -19,6 +24,30 @@ public class TestGeoJson {
 
 	private static final Logger LOGGER = Logger.getLogger(TestGeoJson.class);
 
+	/**
+	 * 
+	 * @param dataString
+	 * @param dataDir
+	 * @param fileName
+	 */
+	public static void createFile(String dataString, File dataDir, String fileName) {
+		BufferedWriter bw = null;
+		try {
+
+			bw = new BufferedWriter(new FileWriter(new File(dataDir, fileName)));
+			bw.write(dataString); // Replace with the string you are trying to write
+		} catch (IOException e) {
+			LOGGER.error("erreur entrées sorties", e);
+		} finally {
+			try {
+				bw.close();
+			} catch (IOException e) {
+				LOGGER.error("erreur entrées sorties", e);
+			}
+		}
+
+	}
+
 	@Test
 	public void testGeoJson () {
 		long startTime = System.nanoTime();
@@ -30,8 +59,10 @@ public class TestGeoJson {
 		
 		FeatureCollectionValidation fcv = new FeatureCollectionValidation();
 		try {
-			LOGGER.info(bp.featureToCSV(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.1, true, 0, 10)));
-			bp.createCSVFile(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.1, true, 0, 10), dataDir, "result.csv");
+			createFile(bp.featureToCSV(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.1, true, 0, 10)), dataDir, "result.csv");
+
+			createFile(bp.featureToJSON(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.1, true, 0, 10)), dataDir, "result.json");
+
 		} catch (IOException e) {
 			LOGGER.error("Erreur lors de la crétaion du fichier");
 		}

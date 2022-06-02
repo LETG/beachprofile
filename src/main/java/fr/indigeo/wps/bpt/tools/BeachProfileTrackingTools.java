@@ -4,12 +4,18 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.log4j.Logger;
 import org.geotools.feature.DefaultFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
@@ -17,17 +23,23 @@ import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.GeodeticCalculator;
+import org.json.JSONArray;
+import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeType;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
 
+import net.sf.json.JSONObject;
+
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 
 public class BeachProfileTrackingTools {
+
+	private static final Logger LOGGER = Logger.getLogger(BeachProfileTrackingTools.class);
 
 	public BeachProfileTrackingTools() {}
 	
@@ -205,46 +217,53 @@ public class BeachProfileTrackingTools {
 	}
 	
 	/**
-	 * Create a csv file from a featurecollection, use for local testing 
+	 * Convert the FeatureColleciton to a json string object
 	 * @param featureCollection
-	 * @param dataDir
-	 * @param fileName
 	 * @return
 	 */
-	public boolean createCSVFile(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection, File dataDir, String fileName) {
+	public String featureToJSON(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection) {
 		
-		String csvString = "";
-		
-		//get column name from the features properties
-		List<AttributeType> attributes = featureCollection.getSchema().getTypes();
-		for(AttributeType att : attributes) csvString += att.getName() + ";";
-		csvString +="\n";
+		JSONObject result = new JSONObject();
+		JSONArray resultsArray = new JSONArray();
+		final String dateKey = "date";
 		
 		//loop in the featureCollection, create a new line for each feature and add recovered data
 		FeatureIterator<SimpleFeature> iterator = featureCollection.features();
 		while (iterator.hasNext()) {
-			SimpleFeature feature = iterator.next();			
-			for(int i = 0; i< feature.getAttributeCount(); i++)	csvString += feature.getAttribute(i) + ";";
-			csvString += "\n";
-		}
-		
-		//create file
-		BufferedWriter bw = null;
-		try {
-			bw = new BufferedWriter(new FileWriter(new File(dataDir, fileName)));
-			bw.write(csvString);
-		} catch (IOException e) {
-			System.out.println("erreur entrées sorties");
-			return false;
-		} finally {
-			try {
-				bw.close();
-			} catch (IOException e) {
-				System.out.println("erreur entrées sorties");
-				return false;
+			JSONObject bpf = new JSONObject();
+			JSONArray bpfValues = new JSONArray();
+			SimpleFeature feature = iterator.next();
+
+			if(LOGGER.isDebugEnabled()){
+				Collection<Property> properties = feature.getProperties();
+				for (Property property : properties){
+					LOGGER.debug("key : " + property.getName() + " value : " + property.getValue().toString());
+				}
 			}
+
+			if(feature.getProperty("error") != null){
+				result.put("result", "error");
+				result.put("additional", feature.getProperty("error").getValue());
+				return result.toString();
+			}
+			bpf.put("date", feature.getProperty(dateKey).getValue().toString());
+
+			for (Property property : feature.getProperties()) {
+				if(!dateKey.equals(property.getName().toString())){
+					JSONObject bpfValue = new JSONObject();
+					LOGGER.debug("Key :" + property.getName() + " value : "+ property.getValue());
+					bpfValue.put(property.getName().toString(), property.getValue());	
+					bpfValues.put(bpfValue);
+				}
+			}		
+			bpf.put("data", bpfValues.toList());
+			resultsArray.put(bpf);
 		}
-		return true;
+		iterator.close();
+
+		result.put("result", resultsArray.toList());
+		LOGGER.debug(result.toString());
+		return result.toString();
 	}
 
 }
