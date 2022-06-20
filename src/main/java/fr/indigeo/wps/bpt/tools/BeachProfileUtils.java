@@ -68,7 +68,7 @@ public class BeachProfileUtils {
 				}
 			}
 		}
-		area = area/(maxDist-minDist);
+		//area = area/(maxDist-minDist);
 		return area;
 	}
 	
