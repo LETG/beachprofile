@@ -53,15 +53,17 @@ public class TestGeoJson {
 		long startTime = System.nanoTime();
 
 		File dataDir = new File("data");
-		File beachProfileFile = new File(dataDir, "profil_test3_lambert.json");
+		File beachProfileFile = new File(dataDir, "prf1_vougot.json");
 		
 		BeachProfileTrackingTools bp = new BeachProfileTrackingTools();
 		
 		FeatureCollectionValidation fcv = new FeatureCollectionValidation();
 		try {
-			createFile(bp.featureToCSV(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.1, true, 0, 10)), dataDir, "result.csv");
-
-			createFile(bp.featureToJSON(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.1, true, 0, 10)), dataDir, "result.json");
+			createFile(bp.featureToCSV(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0, true, 0, 0)), dataDir, "result0.csv");
+			createFile(bp.featureToCSV(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.5, true, 0, 0)), dataDir, "result05.csv");
+			createFile(bp.featureToCSV(bp.InterpolateFeatureCollection(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0)), dataDir, "resultInterpol0.csv");
+			createFile(bp.featureToCSV(bp.InterpolateFeatureCollection(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.5)), dataDir, "resultInterpol05.csv");
+			//createFile(bp.featureToJSON(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.1, true, 0, 0)), dataDir, "result.json");
 
 		} catch (IOException e) {
 			LOGGER.error("Erreur lors de la crétaion du fichier");

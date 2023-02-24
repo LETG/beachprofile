@@ -140,7 +140,8 @@ public class BeachProfileUtils {
 			//this convert code could be useful for a CRS coordinates conversion tool
 			refCrs = CRS.decode("EPSG:4326");
 			MathTransform transform = CRS.findMathTransform(myCrs, refCrs, false);
-			GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+			MathTransform reverseTransform = CRS.findMathTransform(refCrs, myCrs, false);
+			GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 2154);
 			Point point1 = geometryFactory.createPoint(c1);
 			Point point2 = geometryFactory.createPoint(c2);
 			Point targetPoint1 = (Point) JTS.transform(point1, transform);
@@ -154,14 +155,18 @@ public class BeachProfileUtils {
 			int num = (int)(d.s12 / distInterval)+1;
 			//the height coefficient
 			double diff = (c1.z-c2.z)/d.s12;
-			l.add(new Coordinate(targetPoint1.getX(),targetPoint1.getY(),c1.z));
+			Point reverseTargetPoint1 = (Point) JTS.transform(targetPoint1, reverseTransform);
+			Point reverseTargetPoint2 = (Point) JTS.transform(targetPoint2, reverseTransform);
+			l.add(new Coordinate(reverseTargetPoint1.getX(),reverseTargetPoint1.getY(),c1.z));
 			for (int i = 1; i <= num; i++) {
 				if((i * distInterval)-offset < d.s12){
 					GeodesicData g = line.Position((i * distInterval)-offset, GeodesicMask.LATITUDE | GeodesicMask.LONGITUDE);
-					l.add(new Coordinate(g.lon2,g.lat2,c1.z - diff*((distInterval*i)-offset)));
+					Point gpoint =  geometryFactory.createPoint(new Coordinate(g.lon2,g.lat2,c1.z - diff*((distInterval*i)-offset)));
+					Point reverseGpoint = (Point) JTS.transform(gpoint, reverseTransform);
+					l.add(new Coordinate(reverseGpoint.getX(),reverseGpoint.getY(),c1.z - diff*((distInterval*i)-offset)));
 				}
 			}
-			l.add(new Coordinate(targetPoint2.getX(),targetPoint2.getY(),c2.z));		
+			l.add(new Coordinate(reverseTargetPoint2.getX(),reverseTargetPoint2.getY(),c2.z));		
 		} catch (FactoryException e1) {
 			e1.printStackTrace();
 		} catch (MismatchedDimensionException e) {
