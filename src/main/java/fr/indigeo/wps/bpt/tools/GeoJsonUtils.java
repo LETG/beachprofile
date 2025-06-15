@@ -11,8 +11,7 @@ import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.geojson.feature.FeatureJSON;
 import org.geotools.geojson.geom.GeometryJSON;
-import org.json.JSONException;
-import org.json.JSONObject;
+import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.opengis.feature.simple.SimpleFeature;
@@ -30,9 +29,9 @@ public class GeoJsonUtils {
 	 * @throws IOException
 	 * @throws ParseException
 	 */
-	private static String geoJsonToString(File jsonFile) throws FileNotFoundException, IOException, ParseException {	
+	private static JSONObject geoJsonToString(File jsonFile) throws FileNotFoundException, IOException, ParseException {	
 		JSONParser jsonParser = new JSONParser();
-		String data = jsonParser.parse(new FileReader(jsonFile)).toString();	
+		JSONObject data = (JSONObject) jsonParser.parse(new FileReader(jsonFile));	
 		return data;
 	}
 	
@@ -45,14 +44,11 @@ public class GeoJsonUtils {
 	 */
 	public static boolean isFeatureCollectionData(File jsonFile) throws FileNotFoundException, IOException {	
 		try {
-			String data = geoJsonToString(jsonFile);
-			JSONObject jsonData = new JSONObject(data);
+			JSONObject jsonData = geoJsonToString(jsonFile);
 			return jsonData.get("type").equals("FeatureCollection");
 		} catch (ParseException e) {
 			return false;
-		} catch (JSONException e) {
-			return false;
-		}	
+		} 
 	}
 	
 	/**

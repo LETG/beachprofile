@@ -4,10 +4,10 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.geotools.feature.FeatureCollection;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 
@@ -22,7 +22,7 @@ import fr.indigeo.wps.bpt.tools.GeoJsonUtils;
  */
 public class TestGeoJson {
 
-	private static final Logger LOGGER = Logger.getLogger(TestGeoJson.class);
+	private static final Logger LOGGER = LogManager.getLogger(TestGeoJson.class);
 
 	/**
 	 * 

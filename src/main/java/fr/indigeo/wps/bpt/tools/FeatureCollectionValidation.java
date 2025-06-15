@@ -1,10 +1,12 @@
 package fr.indigeo.wps.bpt.tools;
 
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
+import java.util.Date;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.geotools.feature.DefaultFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
@@ -17,6 +19,7 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 public class FeatureCollectionValidation {
 
+	private static final Logger LOGGER = LogManager.getLogger(FeatureCollectionValidation.class);
 	private static DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	
 	public FeatureCollectionValidation(){}
@@ -54,10 +57,13 @@ public class FeatureCollectionValidation {
 			Collection<Property> properties = feature.getProperties();
 			boolean hasDate = false;
 			for (Property property : properties){
-				try {
-					dateFormat.parse(property.getValue().toString());
-					hasDate = true;
-				} catch (ParseException e) { }
+				// TODO why tested this way, date is in creationDate property
+				LOGGER.debug("Test properties - Clé {} - Type {} ", property.getName(), property.getValue().getClass());
+				hasDate = property.getValue() instanceof Date;
+				if(hasDate){
+					break;
+				}
+	
 			}
 			if(!hasDate){
 				builder.set("error", "Date of the feature " + i + " not found");

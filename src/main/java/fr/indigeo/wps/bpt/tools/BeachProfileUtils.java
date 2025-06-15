@@ -4,9 +4,11 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
@@ -99,8 +101,8 @@ public class BeachProfileUtils {
 	 * @param featureCollection
 	 * @return all LineString of the featureCollection
 	 */
-	public static Map<String, LineString> getProfilesFromFeature(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection) {
-		Map<String, LineString> linestrings = new TreeMap<String,LineString>();
+	public static Map<Date, LineString> getProfilesFromFeature(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection) {
+		TreeMap<Date, LineString> linestrings = new TreeMap<Date,LineString>();
 		FeatureIterator<SimpleFeature> iterator = featureCollection.features();
 		// get LineString from Feature
 		while (iterator.hasNext()) {
@@ -109,14 +111,15 @@ public class BeachProfileUtils {
 			if (geometry instanceof LineString){
 				LineString ls = (LineString) geometry;
 				Collection<Property> properties = feature.getProperties();
-				String dateStr = "";
+				Date date = null;
 				for (Property property : properties){
-					try {
-						dateFormat.parse(property.getValue().toString());
-						dateStr = property.getValue().toString();
-					} catch (ParseException e) { }
+						//TODO change date management to use the creationDate property
+						if ( property.getValue() instanceof Date){
+							date = (Date) property.getValue();
+							break;
+						} 
 				}					
-				linestrings.put(dateStr, ls);
+				linestrings.put(date, ls);
 			}
 		}
 		return linestrings;

@@ -13,7 +13,7 @@
 		<geotools.version>27.5</geotools.version>
 		<maven.compiler.target>11</maven.compiler.target>
    		<maven.compiler.source>11</maven.compiler.source>
-		<log4j.version>1.2.17</log4j.version>
+		<log4j.version>2.17.2</log4j.version>
 	</properties>
 
 	<repositories>
@@ -55,29 +55,39 @@
 			<artifactId>gt-wps</artifactId>
 			<version>${geotools.version}</version>
 		</dependency>
+		<!-- Depending on geotools and geoserver version removed in geotools >30 -->
+		<!-- Those two dependencies need to be add to geoserver Lib -->
 		<dependency>
-		    <groupId>org.geotools</groupId>
-		    <artifactId>gt-geojson</artifactId>
+			<groupId>org.geotools</groupId>
+			<artifactId>gt-geojson</artifactId>
 			<version>${geotools.version}</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.json</groupId>
-			<artifactId>json</artifactId>
-			<version>20220320</version>
+			<groupId>com.googlecode.json-simple</groupId>
+			<artifactId>json-simple</artifactId>
+			<version>1.1.1</version>
+			<scope>provided</scope>
 		</dependency>
+		<!-- End of dependencies to be add to geoserver lib folder -->
 		<!-- Logger -->
 		<!-- log4j version is limited by log4j version of geoserver -->
 		<dependency>
-            <groupId>log4j</groupId>
-            <artifactId>log4j</artifactId>
-            <version>${log4j.version}</version>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<version>${log4j.version}</version>
 			<scope>provided</scope>
-        </dependency>
+		</dependency>
 		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.13.2</version>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<version>${log4j.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>5.10.2</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>  

@@ -15,7 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.geotools.feature.DefaultFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
@@ -23,7 +24,8 @@ import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.JTS;
 import org.geotools.referencing.GeodeticCalculator;
-import org.json.JSONArray;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
@@ -31,15 +33,13 @@ import org.opengis.feature.type.AttributeType;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
 
-import net.sf.json.JSONObject;
-
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 
 public class BeachProfileTrackingTools {
 
-	private static final Logger LOGGER = Logger.getLogger(BeachProfileTrackingTools.class);
+	private static final Logger LOGGER = LogManager.getLogger(BeachProfileTrackingTools.class);
 
 	public BeachProfileTrackingTools() {}
 	
@@ -57,8 +57,8 @@ public class BeachProfileTrackingTools {
 		CoordinateReferenceSystem myCrs = fc.getSchema().getCoordinateReferenceSystem();
 		GeometryFactory geometryFactory = new GeometryFactory();
 		DefaultFeatureCollection resultFeatureCollection = null;
-		Map<String, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
-		Map<String, LineString> interpolatedLineStrings = new HashMap<String,LineString>();
+		Map<Date, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
+		Map<Date, LineString> interpolatedLineStrings = new HashMap<Date,LineString>();
 		
 		//do the interpolation
 		lineStrings.forEach((a,b) -> {
@@ -74,10 +74,12 @@ public class BeachProfileTrackingTools {
 				for (int i = 1; i < coordinates.length; i++) {
 					GeodeticCalculator gc = new GeodeticCalculator(myCrs);
 						try {
+							LOGGER.debug("CRS {} - Starting position : {}, Destination position : {}", myCrs, coordinates[i-1], coordinates[i]);
 							gc.setStartingPosition(JTS.toDirectPosition(coordinates[i-1], myCrs));
 							gc.setDestinationPosition(JTS.toDirectPosition(coordinates[i], myCrs));
 						} catch (TransformException e) {
-							e.printStackTrace();
+							LOGGER.error("Error while transforming coordinates from {} to {}", coordinates[i-1], coordinates[i], e);
+							//TODO launch exception e.printStackTrace();
 						}
 					double dist = gc.getOrthodromicDistance();
 					totalDist += dist;
@@ -102,7 +104,7 @@ public class BeachProfileTrackingTools {
 		SimpleFeatureBuilder simpleFeatureBuilder = new SimpleFeatureBuilder(simpleFeatureTypeBuilder.buildFeatureType());
 		resultFeatureCollection = new DefaultFeatureCollection(null, simpleFeatureBuilder.getFeatureType());
 		// add geometrie to defaultFeatures
-		for (Entry<String, LineString> entry : interpolatedLineStrings.entrySet())
+		for (Entry<Date, LineString> entry : interpolatedLineStrings.entrySet())
 		{
 			simpleFeatureBuilder.add(entry.getValue());
 			simpleFeatureBuilder.add(entry.getKey());
@@ -134,14 +136,14 @@ public class BeachProfileTrackingTools {
 		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(type);		
 		DefaultFeatureCollection dfc = new DefaultFeatureCollection();
 		
-		Map<String, LineString> refProfile = BeachProfileUtils.getProfilesFromFeature(profile);
+		Map<Date, LineString> refProfile = BeachProfileUtils.getProfilesFromFeature(profile);
 		double refProfileArea = 0;
 		double lastProfileArea = 0;
 		double tempProfileArea = 0;
 		double tempProfileDist = 0;
 		double totalEvolutionPercent = 0;
 		double tempMaxDist = 0;
-		for (Entry<String, LineString> entry : refProfile.entrySet()) {
+		for (Entry<Date, LineString> entry : refProfile.entrySet()) {
 			coordinates = entry.getValue().getCoordinates();
 			if(refProfileArea == 0){
 				//if we don't specify maxDist, check ignoreDateWithLessDist					
@@ -149,7 +151,7 @@ public class BeachProfileTrackingTools {
 				//else if useSmallestDistance is true, use the smallest distance of all features
 				tempMaxDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates, myCrs);
 				if(useSmallestDistance){
-					for (Entry<String, LineString> entry2 : refProfile.entrySet()) {
+					for (Entry<Date, LineString> entry2 : refProfile.entrySet()) {
 						double dist = BeachProfileUtils.getDistanceFromCoordinates(entry2.getValue().getCoordinates(), myCrs);
 						tempMaxDist = dist < tempMaxDist ? dist : tempMaxDist;						
 					}
@@ -253,15 +255,15 @@ public class BeachProfileTrackingTools {
 					JSONObject bpfValue = new JSONObject();
 					LOGGER.debug("Key :" + property.getName() + " value : "+ property.getValue());
 					bpfValue.put(property.getName().toString(), property.getValue());	
-					bpfValues.put(bpfValue);
+					bpfValues.add(bpfValue);
 				}
 			}		
-			bpf.put("data", bpfValues.toList());
-			resultsArray.put(bpf);
+			bpf.put("data", bpfValues);
+			resultsArray.add(bpf);
 		}
 		iterator.close();
 
-		result.put("result", resultsArray.toList());
+		result.put("result", resultsArray);
 		LOGGER.debug(result.toString());
 		return result.toString();
 	}
