@@ -23,6 +23,7 @@ import org.geotools.feature.FeatureIterator;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.JTS;
+import org.geotools.referencing.CRS;
 import org.geotools.referencing.GeodeticCalculator;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -30,6 +31,7 @@ import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeType;
+import org.opengis.referencing.FactoryException;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
 
@@ -53,14 +55,19 @@ public class BeachProfileTrackingTools {
 		if(interval <= 0){
 			return fc;
 		}
-		//load the LineStrings
-		CoordinateReferenceSystem myCrs = fc.getSchema().getCoordinateReferenceSystem();
+		// load the LineStrings
+		// With geoserver 2.21.5 version CRS give WGS84 instead of 2154
+		CoordinateReferenceSystem myCrs;
+		try {
+			myCrs = CRS.decode("EPSG:2154"); // fc.getSchema().getCoordinateReferenceSystem();
+		
 		GeometryFactory geometryFactory = new GeometryFactory();
 		DefaultFeatureCollection resultFeatureCollection = null;
+		// get Linestrings order by date
 		Map<Date, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
 		Map<Date, LineString> interpolatedLineStrings = new HashMap<Date,LineString>();
 		
-		//do the interpolation
+		// do the interpolation
 		lineStrings.forEach((a,b) -> {
 			if(b.getNumPoints() > 1){
 				Coordinate[] coordinates = b.getCoordinates();
@@ -69,18 +76,19 @@ public class BeachProfileTrackingTools {
 				double offset = 0.0;
 				double totalDist = 0.0;
 				//iterate through each point to create a number of new point between.
-				//the offset is used to stack the distance remained at the end of each interpolation. It is then add to the next interpolation
+				//the offset is used to stack the distance remained at the end of each interpolation. 
+				// It is then add to the next interpolation
 				//With the offset we are sure to have a new point at the same interval plus the original points between them.
 				for (int i = 1; i < coordinates.length; i++) {
 					GeodeticCalculator gc = new GeodeticCalculator(myCrs);
-						try {
-							LOGGER.debug("CRS {} - Starting position : {}, Destination position : {}", myCrs, coordinates[i-1], coordinates[i]);
-							gc.setStartingPosition(JTS.toDirectPosition(coordinates[i-1], myCrs));
-							gc.setDestinationPosition(JTS.toDirectPosition(coordinates[i], myCrs));
-						} catch (TransformException e) {
-							LOGGER.error("Error while transforming coordinates from {} to {}", coordinates[i-1], coordinates[i], e);
-							//TODO launch exception e.printStackTrace();
-						}
+					try {
+						LOGGER.debug("CRS {} - Starting position : {}, Destination position : {}", myCrs, coordinates[i-1], coordinates[i]);
+						gc.setStartingPosition(JTS.toDirectPosition(coordinates[i-1], myCrs));
+						gc.setDestinationPosition(JTS.toDirectPosition(coordinates[i], myCrs));
+					} catch (TransformException e) {
+						LOGGER.error("Error while transforming coordinates from {} to {}", coordinates[i-1], coordinates[i], e);
+						//TODO launch exception e.printStackTrace();
+					}
 					double dist = gc.getOrthodromicDistance();
 					totalDist += dist;
 					tempList = BeachProfileUtils.InterpolateCoordinates(offset, interval, coordinates[i-1], coordinates[i], myCrs);
@@ -100,6 +108,8 @@ public class BeachProfileTrackingTools {
 		simpleFeatureTypeBuilder.setName("featureType");
 		simpleFeatureTypeBuilder.add("geometry", LineString.class);
 		simpleFeatureTypeBuilder.add("date", String.class);
+
+		
 		// init DefaultFeatureCollection
 		SimpleFeatureBuilder simpleFeatureBuilder = new SimpleFeatureBuilder(simpleFeatureTypeBuilder.buildFeatureType());
 		resultFeatureCollection = new DefaultFeatureCollection(null, simpleFeatureBuilder.getFeatureType());
@@ -110,7 +120,13 @@ public class BeachProfileTrackingTools {
 			simpleFeatureBuilder.add(entry.getKey());
 			resultFeatureCollection.add(simpleFeatureBuilder.buildFeature(entry.getKey() + ""));
 		}
+		
 		return resultFeatureCollection;
+		} catch (FactoryException e) {
+			LOGGER.debug("FactoryException",e);
+						
+			return null;
+		} 
 	}
 	
 	/**

@@ -8,8 +8,9 @@ import java.util.Date;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.geometry.jts.JTS;
@@ -38,6 +39,7 @@ import net.sf.geographiclib.GeodesicMask;
 
 public class BeachProfileUtils {
 	
+	private static final Logger LOGGER = LogManager.getLogger(BeachProfileUtils.class);
 	private static DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	
 	/**
@@ -113,11 +115,18 @@ public class BeachProfileUtils {
 				Collection<Property> properties = feature.getProperties();
 				Date date = null;
 				for (Property property : properties){
-						//TODO change date management to use the creationDate property
-						if ( property.getValue() instanceof Date){
-							date = (Date) property.getValue();
-							break;
-						} 
+					//TODO why tested this way, date is in creationDate property
+					LOGGER.debug("Test properties - Key {} - Type {} ", property.getName(), property.getValue().getClass());
+					//TODO change date management to use the creationDate or date property
+					if ( property.getValue() instanceof Date){
+						date = (Date) property.getValue();
+						break;
+					} 
+					try {
+						date = dateFormat.parse(property.getValue().toString());
+					} catch (ParseException e) {
+						// TODO change this to me more efficient and find date by key not by type
+					}
 				}					
 				linestrings.put(date, ls);
 			}
