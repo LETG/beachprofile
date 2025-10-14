@@ -139,75 +139,89 @@ public class BeachProfileTrackingTools {
 	 */
 	public FeatureCollection<SimpleFeatureType, SimpleFeature> sedimentaryBalanceCalc(FeatureCollection<SimpleFeatureType, SimpleFeature> profile, boolean useSmallestDistance, double minDist, double maxDist) {
 		Coordinate[] coordinates = null;
-		CoordinateReferenceSystem myCrs = profile.getSchema().getCoordinateReferenceSystem();
-		//create a new FeatureCollection to write the calculation results
-		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
-		b.setName("featureType");
-		b.add("date", String.class);
-		b.add("volume", Double.class);
-		b.add("diffWithPrevious", Double.class);
-		b.add("previousEvolutionPercent", Double.class);
-		b.add("totalEvolutionPercent", Double.class);
-		SimpleFeatureType type = b.buildFeatureType();
-		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(type);		
-		DefaultFeatureCollection dfc = new DefaultFeatureCollection();
 		
-		Map<Date, LineString> refProfile = BeachProfileUtils.getProfilesFromFeature(profile);
-		double refProfileArea = 0;
-		double lastProfileArea = 0;
-		double tempProfileArea = 0;
-		double tempProfileDist = 0;
-		double totalEvolutionPercent = 0;
-		double tempMaxDist = 0;
-		for (Entry<Date, LineString> entry : refProfile.entrySet()) {
-			coordinates = entry.getValue().getCoordinates();
-			if(refProfileArea == 0){
-				//if we don't specify maxDist, check ignoreDateWithLessDist					
-				//if useSmallestDistance is false, ignore the feature with a distance less than the distance of the first date
-				//else if useSmallestDistance is true, use the smallest distance of all features
-				tempMaxDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates, myCrs);
-				if(useSmallestDistance){
-					for (Entry<Date, LineString> entry2 : refProfile.entrySet()) {
-						double dist = BeachProfileUtils.getDistanceFromCoordinates(entry2.getValue().getCoordinates(), myCrs);
-						tempMaxDist = dist < tempMaxDist ? dist : tempMaxDist;						
-					}
-				}
-				//handle min/max issues
-				if(maxDist > tempMaxDist || maxDist <= 0) maxDist = tempMaxDist;
-				if(minDist < 0) minDist = 0;
-				if(minDist >= maxDist) minDist = 0;					
+		// load the LineStrings
+		// With geoserver 2.21.5 version CRS give WGS84 instead of 2154
+		CoordinateReferenceSystem myCrs;
+		try {
+			myCrs = CRS.decode("EPSG:2154"); // fc.getSchema().getCoordinateReferenceSystem();
+		
+			//create a new FeatureCollection to write the calculation results
+			SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
+			b.setName("featureType");
+			b.add("date", String.class);
+			b.add("volume", Double.class);
+			b.add("diffWithPrevious", Double.class);
+			b.add("totalEvolution", Double.class);
+			SimpleFeatureType type = b.buildFeatureType();
+			SimpleFeatureBuilder builder = new SimpleFeatureBuilder(type);		
+			DefaultFeatureCollection dfc = new DefaultFeatureCollection();
 			
-				refProfileArea = lastProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs);
-				//write the result. For the first date we don't have evolutions values so we add a 0 value
-				builder.add(entry.getKey().toString());
-				builder.add(BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs));
-				builder.add(0);
-				builder.add(0);
-				builder.add(0);
-				SimpleFeature sf = builder.buildFeature(null);
-				dfc.add(sf);
-			}
-			else{
-				tempProfileDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates, myCrs);
-				if(tempProfileDist < maxDist){
-					System.out.println(entry.getKey().toString() + " | " + tempProfileDist + " | distance at this date is less than the distance wanted");
-				}
-				else{
-					tempProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs);
-					totalEvolutionPercent += (tempProfileArea - lastProfileArea)/lastProfileArea*100;
-					//write the results
+			Map<Date, LineString> refProfile = BeachProfileUtils.getProfilesFromFeature(profile);
+			double refProfileArea = 0;
+			double lastProfileArea = 0;
+			double tempProfileArea = 0;
+			double tempProfileDist = 0;
+			double totalEvolution = 0;
+			double tempMaxDist = 0;
+
+			// For each profile 
+			for (Entry<Date, LineString> entry : refProfile.entrySet()) {
+				coordinates = entry.getValue().getCoordinates();
+			
+				LOGGER.debug("Calulation for date {}", entry.getKey().toString());
+				if(refProfileArea == 0){
+					//if we don't specify maxDist, check ignoreDateWithLessDist					
+					//if useSmallestDistance is false, ignore the feature with a distance less than the distance of the first date
+					//else if useSmallestDistance is true, use the smallest distance of all features
+					tempMaxDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates, myCrs);
+					if(useSmallestDistance){
+						LOGGER.debug("Use smallestDistance {}", useSmallestDistance);
+						// vérification par rapport aux autres profils
+						for (Entry<Date, LineString> entry2 : refProfile.entrySet()) {
+							double dist = BeachProfileUtils.getDistanceFromCoordinates(entry2.getValue().getCoordinates(), myCrs);
+							tempMaxDist = dist < tempMaxDist ? dist : tempMaxDist;						
+						}
+					}
+					//handle min/max issues
+					if(maxDist > tempMaxDist || maxDist <= 0) maxDist = tempMaxDist;
+					if(minDist < 0) minDist = 0;
+					if(minDist >= maxDist) minDist = 0;					
+				
+					refProfileArea = lastProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs);
+					//write the result. For the first date we don't have evolutions values so we add a 0 value
 					builder.add(entry.getKey().toString());
-					builder.add(tempProfileArea);
-					builder.add((tempProfileArea - lastProfileArea));
-					builder.add((tempProfileArea - lastProfileArea)/lastProfileArea*100);
-					builder.add(totalEvolutionPercent);
+					builder.add(lastProfileArea);
+					builder.add(0);
+					builder.add(0);
 					SimpleFeature sf = builder.buildFeature(null);
 					dfc.add(sf);
-					lastProfileArea = tempProfileArea;
-				}		
+				}
+				else{
+					tempProfileDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates, myCrs);
+					if(tempProfileDist < maxDist){
+						LOGGER.debug(entry.getKey().toString() + " | " + tempProfileDist + " | distance at this date is less than the distance wanted");
+					}
+					else{
+						tempProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs);
+						totalEvolution += (tempProfileArea - lastProfileArea);
+						//write the results
+						builder.add(entry.getKey().toString());
+						builder.add(tempProfileArea);
+						builder.add((tempProfileArea - lastProfileArea));
+						builder.add(totalEvolution);
+						SimpleFeature sf = builder.buildFeature(null);
+						dfc.add(sf);
+						lastProfileArea = tempProfileArea;
+					}		
+				}
 			}
-        }
-		return dfc;
+			
+			return dfc;
+		} catch (FactoryException e1) {
+			LOGGER.error("FactoryException",e1);	
+			return null;
+		}
 	}
 
 	/**
@@ -255,7 +269,7 @@ public class BeachProfileTrackingTools {
 			if(LOGGER.isDebugEnabled()){
 				Collection<Property> properties = feature.getProperties();
 				for (Property property : properties){
-					LOGGER.debug("key : " + property.getName() + " value : " + property.getValue().toString());
+					LOGGER.debug("key : {},  value : {} " , property.getName(), property.getValue().toString());
 				}
 			}
 
@@ -269,7 +283,6 @@ public class BeachProfileTrackingTools {
 			for (Property property : feature.getProperties()) {
 				if(!dateKey.equals(property.getName().toString())){
 					JSONObject bpfValue = new JSONObject();
-					LOGGER.debug("Key :" + property.getName() + " value : "+ property.getValue());
 					bpfValue.put(property.getName().toString(), property.getValue());	
 					bpfValues.add(bpfValue);
 				}

@@ -46,6 +46,8 @@ public class BeachProfileUtils {
 	 * Area calculation on a specific range
 	 * @param coordinates Array of coordinates
 	 * @param myCrs the CoordinateReferenceSytem used to format the coordinates
+	 * @param minDist minimum distance to start the area calculation
+	 * @param maxDist maximum distance to end the area calculation
 	 * @return Area of the profile in m²/m.l.
 	 */
 	public static double getProfileArea(Coordinate[] coordinates, double minDist, double maxDist, CoordinateReferenceSystem myCrs){
@@ -62,17 +64,20 @@ public class BeachProfileUtils {
 					gc.setStartingPosition(JTS.toDirectPosition(coordinates[i], myCrs));
 					gc.setDestinationPosition(JTS.toDirectPosition(coordinates[i+1], myCrs));
 				} catch (TransformException e) {
+					LOGGER.error("TransformException",e);
 					e.printStackTrace();
 				}
 				//the round value is to avoid weird result that can happen on distance calculation like 1.00000001 or 3.99999999
 				tempDist = Math.round(totalDist * 1000.0) / 1000.0;
 				totalDist += gc.getOrthodromicDistance(); //return the distance between starting and destination position			
+				
 				if(minDist <= tempDist && maxDist+0.01 >= Math.round(totalDist * 1000.0) / 1000.0){
-					area += ((coordinates[i].z + coordinates[i+1].z)*gc.getOrthodromicDistance())/2;					
+					area += ((coordinates[i].z + coordinates[i+1].z)*gc.getOrthodromicDistance())/2;	
 				}
 			}
 		}
-		area = area/(maxDist-minDist);
+
+		LOGGER.debug("Area calculated : {}, maxDist {}, minDist{}", area, maxDist, minDist);
 		return area;
 	}
 	
@@ -91,6 +96,7 @@ public class BeachProfileUtils {
 				gc.setStartingPosition(JTS.toDirectPosition(coordinates[i-1], myCrs));
 				gc.setDestinationPosition(JTS.toDirectPosition(coordinates[i], myCrs));
 			} catch (TransformException e) {
+				LOGGER.error("TransformException",e);
 				e.printStackTrace();
 			}
 			totalDist += gc.getOrthodromicDistance();

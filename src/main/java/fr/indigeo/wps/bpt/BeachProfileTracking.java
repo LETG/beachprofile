@@ -46,6 +46,7 @@ public class BeachProfileTracking extends StaticMethodsProcessFactory<BeachProfi
 		useSmallestDistance_wps1=useSmallestDistance;
 		minDist_wps1=minDist;
 		maxDist_wps1=maxDist;
+		LOGGER.debug("BeachProfileTracking");
 
 		result_wps1 = callObject_1.calculWithErrorManager(fc_wps1,interpolationValue_wps1,useSmallestDistance_wps1,minDist_wps1,maxDist_wps1);	
 		featureCollection_wps2=result_wps1;

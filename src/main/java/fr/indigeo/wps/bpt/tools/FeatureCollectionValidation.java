@@ -12,6 +12,7 @@ import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
+import org.geotools.referencing.CRS;
 import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
@@ -26,6 +27,7 @@ public class FeatureCollectionValidation {
 		
 	public FeatureCollection<SimpleFeatureType, SimpleFeature> calculWithErrorManager(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, double interpolationValue, boolean useSmallestDistance, double minDist, double maxDist){
 				
+		LOGGER.debug("calculWithErrorManager");
 		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
 		b.setName("ErrorFeature");
 		b.add("error", String.class);
@@ -38,6 +40,7 @@ public class FeatureCollectionValidation {
 		FeatureIterator<SimpleFeature> iterator = fc.features();
 		//check if the FeatureCollection contains features
 		if(iterator.hasNext() == false){
+			LOGGER.error("The FeatureCollection is empty. No features found");
 			builder.set("error", "The FeatureCollection is empty. No features found");
 			SimpleFeature sf = builder.buildFeature(null);
 			dfc.add(sf);
@@ -48,6 +51,7 @@ public class FeatureCollectionValidation {
 			SimpleFeature feature = iterator.next();
 			//check if each feature has a Geometry of type LineString
 			if(!feature.getProperty("geometry").getType().getBinding().getSimpleName().equals("LineString")){
+				LOGGER.error("The feature {} doesn't contains a Geometry of type LineString", i);
 				builder.set("error", "The feature " + i + " doesn't contains a Geometry of type LineString");
 				SimpleFeature sf = builder.buildFeature(null);
 				dfc.add(sf);
@@ -66,15 +70,19 @@ public class FeatureCollectionValidation {
 	
 			}
 			if(!hasDate){
+				LOGGER.error("Date of the feature {} not found", i);
 				builder.set("error", "Date of the feature " + i + " not found");
 				SimpleFeature sf = builder.buildFeature(null);
 				dfc.add(sf);
 			}
 		}
+		LOGGER.debug("Nombres de lineString a traiter {}", i);
+		iterator.close();
 		
 		// check if the file contains a CoordinateReferenceSystem. if not, add a feature with an error message
 		try {
-			CoordinateReferenceSystem myCRS = fc.getSchema().getCoordinateReferenceSystem();
+			
+			CoordinateReferenceSystem myCRS = CRS.decode("EPSG:2154");//fc.getSchema().getCoordinateReferenceSystem();
 			if(myCRS == null){
 				builder.set("error", "Impossible to find the CoordinateReferenceSystem of the file");
 				SimpleFeature sf = builder.buildFeature(null);
