@@ -4,10 +4,13 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
 import org.geotools.geometry.jts.JTS;
@@ -36,12 +39,15 @@ import net.sf.geographiclib.GeodesicMask;
 
 public class BeachProfileUtils {
 	
+	private static final Logger LOGGER = LogManager.getLogger(BeachProfileUtils.class);
 	private static DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
 	
 	/**
 	 * Area calculation on a specific range
 	 * @param coordinates Array of coordinates
 	 * @param myCrs the CoordinateReferenceSytem used to format the coordinates
+	 * @param minDist minimum distance to start the area calculation
+	 * @param maxDist maximum distance to end the area calculation
 	 * @return Area of the profile in m²/m.l.
 	 */
 	public static double getProfileArea(Coordinate[] coordinates, double minDist, double maxDist, CoordinateReferenceSystem myCrs){
@@ -58,17 +64,20 @@ public class BeachProfileUtils {
 					gc.setStartingPosition(JTS.toDirectPosition(coordinates[i], myCrs));
 					gc.setDestinationPosition(JTS.toDirectPosition(coordinates[i+1], myCrs));
 				} catch (TransformException e) {
+					LOGGER.error("TransformException",e);
 					e.printStackTrace();
 				}
 				//the round value is to avoid weird result that can happen on distance calculation like 1.00000001 or 3.99999999
 				tempDist = Math.round(totalDist * 1000.0) / 1000.0;
 				totalDist += gc.getOrthodromicDistance(); //return the distance between starting and destination position			
+				
 				if(minDist <= tempDist && maxDist+0.01 >= Math.round(totalDist * 1000.0) / 1000.0){
-					area += ((coordinates[i].z + coordinates[i+1].z)*gc.getOrthodromicDistance())/2;					
+					area += ((coordinates[i].z + coordinates[i+1].z)*gc.getOrthodromicDistance())/2;	
 				}
 			}
 		}
-		area = area/(maxDist-minDist);
+
+		LOGGER.debug("Area calculated : {}, maxDist {}, minDist{}", area, maxDist, minDist);
 		return area;
 	}
 	
@@ -87,6 +96,7 @@ public class BeachProfileUtils {
 				gc.setStartingPosition(JTS.toDirectPosition(coordinates[i-1], myCrs));
 				gc.setDestinationPosition(JTS.toDirectPosition(coordinates[i], myCrs));
 			} catch (TransformException e) {
+				LOGGER.error("TransformException",e);
 				e.printStackTrace();
 			}
 			totalDist += gc.getOrthodromicDistance();
@@ -99,8 +109,8 @@ public class BeachProfileUtils {
 	 * @param featureCollection
 	 * @return all LineString of the featureCollection
 	 */
-	public static Map<String, LineString> getProfilesFromFeature(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection) {
-		Map<String, LineString> linestrings = new TreeMap<String,LineString>();
+	public static Map<Date, LineString> getProfilesFromFeature(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection) {
+		TreeMap<Date, LineString> linestrings = new TreeMap<Date,LineString>();
 		FeatureIterator<SimpleFeature> iterator = featureCollection.features();
 		// get LineString from Feature
 		while (iterator.hasNext()) {
@@ -109,14 +119,22 @@ public class BeachProfileUtils {
 			if (geometry instanceof LineString){
 				LineString ls = (LineString) geometry;
 				Collection<Property> properties = feature.getProperties();
-				String dateStr = "";
+				Date date = null;
 				for (Property property : properties){
+					//TODO why tested this way, date is in creationDate property
+					LOGGER.debug("Test properties - Key {} - Type {} ", property.getName(), property.getValue().getClass());
+					//TODO change date management to use the creationDate or date property
+					if ( property.getValue() instanceof Date){
+						date = (Date) property.getValue();
+						break;
+					} 
 					try {
-						dateFormat.parse(property.getValue().toString());
-						dateStr = property.getValue().toString();
-					} catch (ParseException e) { }
+						date = dateFormat.parse(property.getValue().toString());
+					} catch (ParseException e) {
+						// TODO change this to me more efficient and find date by key not by type
+					}
 				}					
-				linestrings.put(dateStr, ls);
+				linestrings.put(date, ls);
 			}
 		}
 		return linestrings;
