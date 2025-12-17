@@ -49,7 +49,7 @@ public class BeachProfileTrackingTools {
 
 	public BeachProfileTrackingTools() {}
 
-	public FeatureCollection<SimpleFeatureType, SimpleFeature> reprojectFeatureCollectionToRefLine(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, FeatureCollection<SimpleFeatureType, SimpleFeature> refline) {
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> reprojectFeatureCollectionToRefLine(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, FeatureCollection<SimpleFeatureType, SimpleFeature> refline, double distanceMax) {
 		
 		LOGGER.debug("reprojectFeatureCollectionToRefLine");
 		if (fc == null || refline == null) {
@@ -61,31 +61,44 @@ public class BeachProfileTrackingTools {
 			return fc;
 		}
 
+		double effectiveDistanceMax = distanceMax > 0 ? distanceMax : 20d;
+		boolean filterByDistance = effectiveDistanceMax > 0;
 		DefaultFeatureCollection reprojected = new DefaultFeatureCollection(null, fc.getSchema());
 		FeatureIterator<SimpleFeature> iterator = fc.features();
 		try {
 			while (iterator.hasNext()) {
 				SimpleFeature feature = iterator.next();
 				Object geometry = feature.getDefaultGeometry();
-				if (!(geometry instanceof LineString)) {
-					reprojected.add(feature);
-					continue;
-				}
+					if (!(geometry instanceof LineString)) {
+						reprojected.add(feature);
+						continue;
+					}
 
-				LineString line = (LineString) geometry;
-				Coordinate[] coords = line.getCoordinates();
-				Coordinate[] projected = new Coordinate[coords.length];
-				for (int i = 0; i < coords.length; i++) {
-					Coordinate c = coords[i];
-					Coordinate target = DistanceOp.nearestPoints(refGeometry, line.getFactory().createPoint(c))[0];
-					projected[i] = new Coordinate(target.x, target.y, c.getZ());
+					LineString line = (LineString) geometry;
+					Coordinate[] coords = line.getCoordinates();
+					List<Coordinate> projected = new ArrayList<>();
+					for (int i = 0; i < coords.length; i++) {
+						Coordinate c = coords[i];
+						org.locationtech.jts.geom.Point point = line.getFactory().createPoint(c);
+						double distanceToRef = refGeometry.distance(point);
+						if (filterByDistance && distanceToRef > effectiveDistanceMax) {
+							LOGGER.info("Point ignoré car distance {} > distanceMax {} (profil {}, point {})", distanceToRef, effectiveDistanceMax, resolveProfileDate(feature), resolvePointIdentifier(feature, i));
+							continue;
+						}
+						Coordinate target = DistanceOp.nearestPoints(refGeometry, point)[0];
+						projected.add(new Coordinate(target.x, target.y, c.getZ()));
 				}
 
 				int geomIndex = feature.getFeatureType().indexOf(feature.getDefaultGeometryProperty().getName());
 				SimpleFeatureBuilder builder = new SimpleFeatureBuilder(feature.getFeatureType());
+				Coordinate[] projectedArray = projected.toArray(new Coordinate[0]);
+				if (projectedArray.length == 1) {
+					LOGGER.info("Seulement un point conservé après filtrage distanceMax, duplication pour conserver un LineString (profil {}, point {})", resolveProfileDate(feature), resolvePointIdentifier(feature, 0));
+					projectedArray = new Coordinate[] { projectedArray[0], projectedArray[0] };
+				}
 				for (int i = 0; i < feature.getAttributeCount(); i++) {
 					if (i == geomIndex) {
-						builder.add(line.getFactory().createLineString(projected));
+						builder.add(line.getFactory().createLineString(projectedArray));
 					} else {
 						builder.add(feature.getAttribute(i));
 					}
@@ -96,6 +109,27 @@ public class BeachProfileTrackingTools {
 			iterator.close();
 		}
 		return reprojected;
+	}
+
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> reprojectFeatureCollectionToRefLine(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, FeatureCollection<SimpleFeatureType, SimpleFeature> refline) {
+		return reprojectFeatureCollectionToRefLine(fc, refline, 20d);
+	}
+
+	private String resolveProfileDate(SimpleFeature feature) {
+		Object creationDate = feature.getAttribute("creationdate");
+		if (creationDate == null) {
+			creationDate = feature.getAttribute("date");
+		}
+		if (creationDate != null) {
+			return creationDate.toString();
+		}
+		return feature.getID();
+	}
+
+	private String resolvePointIdentifier(SimpleFeature feature, int coordinateIndex) {
+		Object ogcFid = feature.getAttribute("ogc_fid");
+		String featureId = ogcFid != null ? ogcFid.toString() : feature.getID();
+		return featureId + "#" + (coordinateIndex + 1);
 	}
 
 	private Geometry buildRefGeometry(FeatureCollection<SimpleFeatureType, SimpleFeature> refline) {

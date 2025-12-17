@@ -25,7 +25,7 @@ public class FeatureCollectionValidation {
 	
 	public FeatureCollectionValidation(){}
 		
-	public FeatureCollection<SimpleFeatureType, SimpleFeature> calculWithErrorManager(FeatureCollection<SimpleFeatureType, SimpleFeature> fc,FeatureCollection<SimpleFeatureType, SimpleFeature> refline, double interpolationValue, boolean useSmallestDistance, double minDist, double maxDist){
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> calculWithErrorManager(FeatureCollection<SimpleFeatureType, SimpleFeature> fc,FeatureCollection<SimpleFeatureType, SimpleFeature> refline, double interpolationValue, boolean useSmallestDistance, double minDist, double maxDist, double distanceMax){
 				
 		LOGGER.debug("calculWithErrorManager");
 		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
@@ -112,6 +112,12 @@ public class FeatureCollectionValidation {
 			SimpleFeature sf = builder.buildFeature(null);
 			dfc.add(sf);
 		}
+		if(distanceMax < 0)
+		{
+			builder.set("error", "The distanceMax value can not be negative");
+			SimpleFeature sf = builder.buildFeature(null);
+			dfc.add(sf);
+		}
 		if(minDist >= maxDist && minDist != 0){
 			builder.set("error", "the minDist value can not be higher or equal to the maxDist value");
 			SimpleFeature sf = builder.buildFeature(null);
@@ -124,7 +130,7 @@ public class FeatureCollectionValidation {
 			BeachProfileTrackingTools bp = new BeachProfileTrackingTools();
 
 			// First point of refline is virtual refernce point
-			fcReprojection = bp.reprojectFeatureCollectionToRefLine(fc, refline);
+			fcReprojection = bp.reprojectFeatureCollectionToRefLine(fc, refline, distanceMax);
 
 			fcInterpolation = bp.InterpolateFeatureCollection(fcReprojection, refline, interpolationValue);
 			if(!fcInterpolation.features().hasNext()){

@@ -59,6 +59,61 @@ public class BeachProfileTrackingToolsTest {
         assertArrayEquals(expected, shifted.getCoordinates());
     }
 
+    @Test
+    void reprojectFeatureCollectionToRefLine_usesDefaultDistanceMaxWhenNotProvided() {
+        SimpleFeatureType type = buildLineType();
+        DefaultFeatureCollection fc = new DefaultFeatureCollection(null, type);
+        DefaultFeatureCollection refLine = new DefaultFeatureCollection(null, type);
+
+        LineString profile = geometryFactory.createLineString(new Coordinate[] {
+            new Coordinate(50, 0),
+            new Coordinate(60, 0)
+        });
+        fc.add(buildFeature(type, "profile-1", profile));
+
+        LineString reference = geometryFactory.createLineString(new Coordinate[] {
+            new Coordinate(0, 0),
+            new Coordinate(0, 10)
+        });
+        refLine.add(buildFeature(type, "refline-1", reference));
+
+        FeatureCollection<SimpleFeatureType, SimpleFeature> result = tools.reprojectFeatureCollectionToRefLine(fc, refLine);
+        SimpleFeature reprojected = result.features().next();
+        LineString shifted = (LineString) reprojected.getDefaultGeometry();
+
+        Coordinate[] expected = new Coordinate[0];
+        assertArrayEquals(expected, shifted.getCoordinates());
+    }
+
+    @Test
+    void reprojectFeatureCollectionToRefLine_skipsVerticesFurtherThanDistanceMax() {
+        SimpleFeatureType type = buildLineType();
+        DefaultFeatureCollection fc = new DefaultFeatureCollection(null, type);
+        DefaultFeatureCollection refLine = new DefaultFeatureCollection(null, type);
+
+        LineString profile = geometryFactory.createLineString(new Coordinate[] {
+            new Coordinate(10, 0),
+            new Coordinate(20, 0)
+        });
+        fc.add(buildFeature(type, "profile-1", profile));
+
+        LineString reference = geometryFactory.createLineString(new Coordinate[] {
+            new Coordinate(10, 0),
+            new Coordinate(10, 5)
+        });
+        refLine.add(buildFeature(type, "refline-1", reference));
+
+        FeatureCollection<SimpleFeatureType, SimpleFeature> result = tools.reprojectFeatureCollectionToRefLine(fc, refLine, 5d);
+        SimpleFeature reprojected = result.features().next();
+        LineString shifted = (LineString) reprojected.getDefaultGeometry();
+
+        Coordinate[] expected = new Coordinate[] {
+            new Coordinate(10, 0),
+            new Coordinate(10, 0)
+        };
+        assertArrayEquals(expected, shifted.getCoordinates());
+    }
+
     private SimpleFeatureType buildLineType() {
         SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
         builder.setName("lineType");

@@ -64,8 +64,8 @@ public class TestGeoJson {
 			FeatureCollection<SimpleFeatureType, SimpleFeature> beachProfiles = GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile);
 			FeatureCollection<SimpleFeatureType, SimpleFeature> refLine = beachProfiles;
 
-			createFile(bp.featureToCSV(fcv.calculWithErrorManager(beachProfiles, refLine, 0d, true, 0d, 0d)), dataDir, "result0.csv");
-			createFile(bp.featureToCSV(fcv.calculWithErrorManager(beachProfiles, refLine, 0.5d, true, 0d, 0d)), dataDir, "result05.csv");
+			createFile(bp.featureToCSV(fcv.calculWithErrorManager(beachProfiles, refLine, 0d, true, 0d, 0d, 20d)), dataDir, "result0.csv");
+			createFile(bp.featureToCSV(fcv.calculWithErrorManager(beachProfiles, refLine, 0.5d, true, 0d, 0d, 20d)), dataDir, "result05.csv");
 			createFile(bp.featureToCSV(bp.InterpolateFeatureCollection(beachProfiles, refLine, 0d)), dataDir, "resultInterpol0.csv");
 			createFile(bp.featureToCSV(bp.InterpolateFeatureCollection(beachProfiles, refLine, 0.5d)), dataDir, "resultInterpol05.csv");
 			//createFile(bp.featureToJSON(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.1, true, 0, 0)), dataDir, "result.json");
