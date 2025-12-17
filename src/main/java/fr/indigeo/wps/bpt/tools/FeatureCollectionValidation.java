@@ -25,7 +25,7 @@ public class FeatureCollectionValidation {
 	
 	public FeatureCollectionValidation(){}
 		
-	public FeatureCollection<SimpleFeatureType, SimpleFeature> calculWithErrorManager(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, double interpolationValue, boolean useSmallestDistance, double minDist, double maxDist){
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> calculWithErrorManager(FeatureCollection<SimpleFeatureType, SimpleFeature> fc,FeatureCollection<SimpleFeatureType, SimpleFeature> refline, double interpolationValue, boolean useSmallestDistance, double minDist, double maxDist){
 				
 		LOGGER.debug("calculWithErrorManager");
 		SimpleFeatureTypeBuilder b = new SimpleFeatureTypeBuilder();
@@ -34,7 +34,7 @@ public class FeatureCollectionValidation {
 		SimpleFeatureType type = b.buildFeatureType();
 		SimpleFeatureBuilder builder = new SimpleFeatureBuilder(type);		
 		DefaultFeatureCollection dfc = new DefaultFeatureCollection();
-		FeatureCollection<SimpleFeatureType, SimpleFeature> fcInterpolation, fcResult;
+		FeatureCollection<SimpleFeatureType, SimpleFeature> fcReprojection, fcInterpolation, fcResult;
 						
 		//we want a specific format to our featureCollection : multiple features each with a date as parameter and a geometry of type LineString	
 		FeatureIterator<SimpleFeature> iterator = fc.features();
@@ -122,7 +122,11 @@ public class FeatureCollectionValidation {
 		if(!dfc.features().hasNext()){			
 			//do the interpolation
 			BeachProfileTrackingTools bp = new BeachProfileTrackingTools();
-			fcInterpolation = bp.InterpolateFeatureCollection(fc, interpolationValue);
+
+			// First point of refline is virtual refernce point
+			fcReprojection = bp.reprojectFeatureCollectionToRefLine(fc, refline);
+
+			fcInterpolation = bp.InterpolateFeatureCollection(fcReprojection, refline, interpolationValue);
 			if(!fcInterpolation.features().hasNext()){
 				builder.set("error", "Interpolation failed");
 				SimpleFeature sf = builder.buildFeature(null);

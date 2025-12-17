@@ -18,9 +18,9 @@ public class BeachProfileTracking_InterpolateFeatureCollection extends StaticMet
 
 	@DescribeProcess(title="BeachProfileTracking_InterpolateFeatureCollection",description="Add a description of BeachProfileTracking_InterpolateFeatureCollection")
 	@DescribeResult(name="result",description="the feature collection interpolated")
-	public static FeatureCollection<SimpleFeatureType, SimpleFeature> BeachProfileTracking_InterpolateFeatureCollection(@DescribeParameter(name="fc",description=" the feature collection containing geometries we want to interpolate") FeatureCollection<SimpleFeatureType, SimpleFeature> fc,@DescribeParameter(name="interval",description=" distance between coordinates of the geometry") Double interval) {
+	public static FeatureCollection<SimpleFeatureType, SimpleFeature> BeachProfileTracking_InterpolateFeatureCollection(@DescribeParameter(name="fc",description=" the feature collection containing geometries we want to interpolate") FeatureCollection<SimpleFeatureType, SimpleFeature> fc,@DescribeParameter(name="refline",description=" reference line used to align interpolation") FeatureCollection<SimpleFeatureType, SimpleFeature> refline,@DescribeParameter(name="interval",description=" distance between coordinates of the geometry") Double interval) {
 		FeatureCollection<SimpleFeatureType, SimpleFeature> result;
-		result = callObject.InterpolateFeatureCollection( fc, interval);
+		result = callObject.InterpolateFeatureCollection( fc, refline, interval);
 
 		return result;
 	}

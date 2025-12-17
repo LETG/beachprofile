@@ -37,14 +37,86 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.operation.distance.DistanceOp;
+import org.locationtech.jts.linearref.LengthIndexedLine;
 
 public class BeachProfileTrackingTools {
 
 	private static final Logger LOGGER = LogManager.getLogger(BeachProfileTrackingTools.class);
 
 	public BeachProfileTrackingTools() {}
+
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> reprojectFeatureCollectionToRefLine(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, FeatureCollection<SimpleFeatureType, SimpleFeature> refline) {
+		
+		LOGGER.debug("reprojectFeatureCollectionToRefLine");
+		if (fc == null || refline == null) {
+			return fc;
+		}
+
+		Geometry refGeometry = buildRefGeometry(refline);
+		if (refGeometry == null) {
+			return fc;
+		}
+
+		DefaultFeatureCollection reprojected = new DefaultFeatureCollection(null, fc.getSchema());
+		FeatureIterator<SimpleFeature> iterator = fc.features();
+		try {
+			while (iterator.hasNext()) {
+				SimpleFeature feature = iterator.next();
+				Object geometry = feature.getDefaultGeometry();
+				if (!(geometry instanceof LineString)) {
+					reprojected.add(feature);
+					continue;
+				}
+
+				LineString line = (LineString) geometry;
+				Coordinate[] coords = line.getCoordinates();
+				Coordinate[] projected = new Coordinate[coords.length];
+				for (int i = 0; i < coords.length; i++) {
+					Coordinate c = coords[i];
+					Coordinate target = DistanceOp.nearestPoints(refGeometry, line.getFactory().createPoint(c))[0];
+					projected[i] = new Coordinate(target.x, target.y, c.getZ());
+				}
+
+				int geomIndex = feature.getFeatureType().indexOf(feature.getDefaultGeometryProperty().getName());
+				SimpleFeatureBuilder builder = new SimpleFeatureBuilder(feature.getFeatureType());
+				for (int i = 0; i < feature.getAttributeCount(); i++) {
+					if (i == geomIndex) {
+						builder.add(line.getFactory().createLineString(projected));
+					} else {
+						builder.add(feature.getAttribute(i));
+					}
+				}
+				reprojected.add(builder.buildFeature(feature.getID()));
+			}
+		} finally {
+			iterator.close();
+		}
+		return reprojected;
+	}
+
+	private Geometry buildRefGeometry(FeatureCollection<SimpleFeatureType, SimpleFeature> refline) {
+		List<LineString> refLines = new ArrayList<LineString>();
+		FeatureIterator<SimpleFeature> iterator = refline.features();
+		try {
+			while (iterator.hasNext()) {
+				Object geometry = iterator.next().getDefaultGeometry();
+				if (geometry instanceof LineString) {
+					refLines.add((LineString) geometry);
+				}
+			}
+		} finally {
+			iterator.close();
+		}
+		if (refLines.isEmpty()) {
+			return null;
+		}
+		GeometryFactory geometryFactory = refLines.get(0).getFactory();
+		return geometryFactory.createMultiLineString(refLines.toArray(new LineString[0]));
+	}
 
 	public LineString interpolateLineStringConstantStep(LineString line, double step, CoordinateReferenceSystem crs) {
 
@@ -95,8 +167,9 @@ public class BeachProfileTrackingTools {
 	 * @param interval in meters
 	 * @return
 	 */
-	public FeatureCollection<SimpleFeatureType, SimpleFeature> InterpolateFeatureCollection(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, double interval){
-		if(interval <= 0){
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> InterpolateFeatureCollection(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, FeatureCollection<SimpleFeatureType, SimpleFeature> refline, double interval){
+		LOGGER.debug("InterpolateFeatureCollection");
+		if(interval <= 0 || refline == null){
 			return fc;
 		}
 		// load the LineStrings
@@ -105,15 +178,23 @@ public class BeachProfileTrackingTools {
 		try {
 			myCrs = CRS.decode("EPSG:2154"); // fc.getSchema().getCoordinateReferenceSystem();
 		
+			Geometry refGeometry = buildRefGeometry(refline);
+			if (refGeometry == null) {
+				return fc;
+			}
+			LengthIndexedLine refIndexed = new LengthIndexedLine(refGeometry);
+			double refLength = BeachProfileUtils.getDistanceFromCoordinates(refGeometry.getCoordinates(), myCrs);
+			List<Double> targetDistances = buildTargetDistances(refLength, interval);
+
 			GeometryFactory geometryFactory = new GeometryFactory();
 			DefaultFeatureCollection resultFeatureCollection = null;
 			// get Linestrings order by date
 			Map<Date, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
 			Map<Date, LineString> interpolatedLineStrings = new HashMap<Date,LineString>();
 			
-			// do the interpolation
+			// do the interpolation aligned on the reference line
 			lineStrings.forEach((id,line) -> {
-				LineString interpolated = interpolateLineStringConstantStep(line, interval, myCrs);
+				LineString interpolated = interpolateLineOnReference(line, refIndexed, targetDistances, interval, myCrs);
 				interpolatedLineStrings.put(id, interpolated);
 			});
 			
@@ -143,6 +224,89 @@ public class BeachProfileTrackingTools {
 						
 			return null;
 		}
+	}
+
+	private List<Double> buildTargetDistances(double refLength, double interval) {
+		List<Double> targetDistances = new ArrayList<>();
+		double current = 0d;
+		while (current <= refLength) {
+			targetDistances.add(current);
+			current += interval;
+		}
+		if (targetDistances.get(targetDistances.size() - 1) < refLength) {
+			targetDistances.add(refLength);
+		}
+		return targetDistances;
+	}
+
+	private LineString interpolateLineOnReference(LineString line, LengthIndexedLine refIndexed, List<Double> targetDistances, double interval, CoordinateReferenceSystem crs) {
+		if (line == null || refIndexed == null || targetDistances == null || targetDistances.isEmpty()) {
+			return line;
+		}
+
+		double lineLength = BeachProfileUtils.getDistanceFromCoordinates(line.getCoordinates(), crs);
+		if (lineLength == 0) {
+			return line;
+		}
+
+		Coordinate start = line.getCoordinateN(0);
+		double startOnRef = refIndexed.indexOf(start);
+		double endOnRef = refIndexed.indexOf(line.getCoordinateN(line.getNumPoints() - 1));
+		double minRef = Math.min(startOnRef, endOnRef) - (interval * 0.5);
+		double maxRef = Math.max(startOnRef, endOnRef) + (interval * 0.5);
+
+		List<Coordinate> interpolated = new ArrayList<>();
+		for (double targetDistance : targetDistances) {
+			if (targetDistance < minRef) {
+				continue; // line has not started yet on the refline
+			}
+			if (targetDistance > maxRef) {
+				break; // past the end of this line, remaining targets are beyond
+			}
+			double targetOnLine = targetDistance - startOnRef;
+			if (targetOnLine < -interval) {
+				continue;
+			}
+			if (targetOnLine > lineLength + interval) {
+				break;
+			}
+			Coordinate c = interpolateCoordinateAtDistance(line.getCoordinates(), targetOnLine, crs);
+			if (c != null) {
+				interpolated.add(c);
+			}
+		}
+		return line.getFactory().createLineString(interpolated.toArray(new Coordinate[0]));
+	}
+
+	private Coordinate interpolateCoordinateAtDistance(Coordinate[] coords, double targetDistance, CoordinateReferenceSystem crs) {
+		if (coords == null || coords.length == 0 || crs == null) {
+			return null;
+		}
+		if (targetDistance <= 0) {
+			return new Coordinate(coords[0].x, coords[0].y, coords[0].z);
+		}
+
+		double cumulative = 0d;
+		GeodeticCalculator gc = new GeodeticCalculator(crs);
+		for (int i = 1; i < coords.length; i++) {
+			try {
+				gc.setStartingPosition(JTS.toDirectPosition(coords[i - 1], crs));
+				gc.setDestinationPosition(JTS.toDirectPosition(coords[i], crs));
+			} catch (TransformException e) {
+				LOGGER.error("Erreur durant l'interpolation", e);
+				continue;
+			}
+			double segmentLength = gc.getOrthodromicDistance();
+			if (cumulative + segmentLength + 0.0001 >= targetDistance) {
+				double ratio = (targetDistance - cumulative) / segmentLength;
+				double x = coords[i - 1].x + ratio * (coords[i].x - coords[i - 1].x);
+				double y = coords[i - 1].y + ratio * (coords[i].y - coords[i - 1].y);
+				double z = coords[i - 1].z + ratio * (coords[i].z - coords[i - 1].z);
+				return new Coordinate(x, y, z);
+			}
+			cumulative += segmentLength;
+		}
+		return new Coordinate(coords[coords.length - 1].x, coords[coords.length - 1].y, coords[coords.length - 1].z);
 	}
 	
 	/**

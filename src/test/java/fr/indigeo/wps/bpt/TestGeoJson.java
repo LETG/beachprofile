@@ -39,10 +39,12 @@ public class TestGeoJson {
 		} catch (IOException e) {
 			LOGGER.error("erreur entrées sorties", e);
 		} finally {
-			try {
-				bw.close();
-			} catch (IOException e) {
-				LOGGER.error("erreur entrées sorties", e);
+			if (bw != null) {
+				try {
+					bw.close();
+				} catch (IOException e) {
+					LOGGER.error("erreur entrées sorties", e);
+				}
 			}
 		}
 
@@ -59,10 +61,13 @@ public class TestGeoJson {
 		
 		FeatureCollectionValidation fcv = new FeatureCollectionValidation();
 		try {
-			createFile(bp.featureToCSV(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0, true, 0, 0)), dataDir, "result0.csv");
-			createFile(bp.featureToCSV(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.5, true, 0, 0)), dataDir, "result05.csv");
-			createFile(bp.featureToCSV(bp.InterpolateFeatureCollection(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0)), dataDir, "resultInterpol0.csv");
-			createFile(bp.featureToCSV(bp.InterpolateFeatureCollection(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.5)), dataDir, "resultInterpol05.csv");
+			FeatureCollection<SimpleFeatureType, SimpleFeature> beachProfiles = GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile);
+			FeatureCollection<SimpleFeatureType, SimpleFeature> refLine = beachProfiles;
+
+			createFile(bp.featureToCSV(fcv.calculWithErrorManager(beachProfiles, refLine, 0d, true, 0d, 0d)), dataDir, "result0.csv");
+			createFile(bp.featureToCSV(fcv.calculWithErrorManager(beachProfiles, refLine, 0.5d, true, 0d, 0d)), dataDir, "result05.csv");
+			createFile(bp.featureToCSV(bp.InterpolateFeatureCollection(beachProfiles, refLine, 0d)), dataDir, "resultInterpol0.csv");
+			createFile(bp.featureToCSV(bp.InterpolateFeatureCollection(beachProfiles, refLine, 0.5d)), dataDir, "resultInterpol05.csv");
 			//createFile(bp.featureToJSON(fcv.calculWithErrorManager(GeoJsonUtils.geoJsonToFeatureCollection(beachProfileFile), 0.1, true, 0, 0)), dataDir, "result.json");
 
 		} catch (IOException e) {
