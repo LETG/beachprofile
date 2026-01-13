@@ -30,25 +30,31 @@ public class BeachProfileTracking extends StaticMethodsProcessFactory<BeachProfi
 	@DescribeResult(name="result",description="A text containing feature collection informations formatted to csv format")
 	public static String BeachProfileTracking(
 		@DescribeParameter(name="fc",description=" featureCollection containing the profile geometries") FeatureCollection<SimpleFeatureType, SimpleFeature> fc,
+	@DescribeParameter(name="refline",description=" reference line featureCollection") FeatureCollection<SimpleFeatureType, SimpleFeature> refline,
 	@DescribeParameter(name="interval",description=" interval used for the interpolation") Double interval,
 	@DescribeParameter(name="useSmallestDistance",description=" If useSmallestDistance is true, use the smallest distance between all features, else ignore the feature shorter than the first one") Boolean useSmallestDistance,
 	@DescribeParameter(name="minDist",description=" specifie the minimum distance of the interval of calculation") Double minDist,
-	@DescribeParameter(name="maxDist",description=" specifie the maximum distance of the interval of calculation") Double maxDist) {
+	@DescribeParameter(name="maxDist",description=" specifie the maximum distance of the interval of calculation") Double maxDist,
+	@DescribeParameter(name="distanceMax",description=" maximum distance to project points on reference line") Double distanceMax) {
 		FeatureCollection<SimpleFeatureType, SimpleFeature> fc_wps1 ;	
+		FeatureCollection<SimpleFeatureType, SimpleFeature> refline_wps1 ;	
 		Double interpolationValue_wps1 = 0.0;	
 		Boolean useSmallestDistance_wps1 = true;	
 		Double minDist_wps1 = 0.0;	
 		Double maxDist_wps1 = 0.0;	
+		Double distanceMax_wps1 = 20.0;
 		FeatureCollection<SimpleFeatureType, SimpleFeature> result_wps1 ;
 		FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection_wps2 ;	
 		fc_wps1=fc;
+		refline_wps1=refline;
 		interpolationValue_wps1=interval;
 		useSmallestDistance_wps1=useSmallestDistance;
 		minDist_wps1=minDist;
 		maxDist_wps1=maxDist;
+		distanceMax_wps1= distanceMax != null ? distanceMax : distanceMax_wps1;
 		LOGGER.debug("BeachProfileTracking");
 
-		result_wps1 = callObject_1.calculWithErrorManager(fc_wps1,interpolationValue_wps1,useSmallestDistance_wps1,minDist_wps1,maxDist_wps1);	
+		result_wps1 = callObject_1.calculWithErrorManager(fc_wps1,refline_wps1,interpolationValue_wps1,useSmallestDistance_wps1,minDist_wps1,maxDist_wps1,distanceMax_wps1);	
 		featureCollection_wps2=result_wps1;
 		return callObject_2.featureToJSON(featureCollection_wps2);	
 	}

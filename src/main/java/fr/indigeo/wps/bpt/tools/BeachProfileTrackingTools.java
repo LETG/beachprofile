@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -36,14 +37,163 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.operation.distance.DistanceOp;
+import org.locationtech.jts.linearref.LengthIndexedLine;
 
 public class BeachProfileTrackingTools {
 
 	private static final Logger LOGGER = LogManager.getLogger(BeachProfileTrackingTools.class);
 
 	public BeachProfileTrackingTools() {}
+
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> reprojectFeatureCollectionToRefLine(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, FeatureCollection<SimpleFeatureType, SimpleFeature> refline, double distanceMax) {
+		
+		LOGGER.debug("reprojectFeatureCollectionToRefLine");
+		if (fc == null || refline == null) {
+			return fc;
+		}
+
+		Geometry refGeometry = buildRefGeometry(refline);
+		if (refGeometry == null) {
+			return fc;
+		}
+
+		double effectiveDistanceMax = distanceMax > 0 ? distanceMax : 20d;
+		boolean filterByDistance = effectiveDistanceMax > 0;
+		DefaultFeatureCollection reprojected = new DefaultFeatureCollection(null, fc.getSchema());
+		FeatureIterator<SimpleFeature> iterator = fc.features();
+		try {
+			while (iterator.hasNext()) {
+				SimpleFeature feature = iterator.next();
+				Object geometry = feature.getDefaultGeometry();
+					if (!(geometry instanceof LineString)) {
+						reprojected.add(feature);
+						continue;
+					}
+
+					LineString line = (LineString) geometry;
+					Coordinate[] coords = line.getCoordinates();
+					List<Coordinate> projected = new ArrayList<>();
+					for (int i = 0; i < coords.length; i++) {
+						Coordinate c = coords[i];
+						org.locationtech.jts.geom.Point point = line.getFactory().createPoint(c);
+						double distanceToRef = refGeometry.distance(point);
+						if (filterByDistance && distanceToRef > effectiveDistanceMax) {
+							LOGGER.info("Point ignoré car distance {} > distanceMax {} (profil {}, point {})", distanceToRef, effectiveDistanceMax, resolveProfileDate(feature), resolvePointIdentifier(feature, i));
+							continue;
+						}
+						Coordinate target = DistanceOp.nearestPoints(refGeometry, point)[0];
+						projected.add(new Coordinate(target.x, target.y, c.getZ()));
+				}
+
+				int geomIndex = feature.getFeatureType().indexOf(feature.getDefaultGeometryProperty().getName());
+				SimpleFeatureBuilder builder = new SimpleFeatureBuilder(feature.getFeatureType());
+				Coordinate[] projectedArray = projected.toArray(new Coordinate[0]);
+				if (projectedArray.length == 1) {
+					LOGGER.info("Seulement un point conservé après filtrage distanceMax, duplication pour conserver un LineString (profil {}, point {})", resolveProfileDate(feature), resolvePointIdentifier(feature, 0));
+					projectedArray = new Coordinate[] { projectedArray[0], projectedArray[0] };
+				}
+				for (int i = 0; i < feature.getAttributeCount(); i++) {
+					if (i == geomIndex) {
+						builder.add(line.getFactory().createLineString(projectedArray));
+					} else {
+						builder.add(feature.getAttribute(i));
+					}
+				}
+				reprojected.add(builder.buildFeature(feature.getID()));
+			}
+		} finally {
+			iterator.close();
+		}
+		return reprojected;
+	}
+
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> reprojectFeatureCollectionToRefLine(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, FeatureCollection<SimpleFeatureType, SimpleFeature> refline) {
+		return reprojectFeatureCollectionToRefLine(fc, refline, 20d);
+	}
+
+	private String resolveProfileDate(SimpleFeature feature) {
+		Object creationDate = feature.getAttribute("creationdate");
+		if (creationDate == null) {
+			creationDate = feature.getAttribute("date");
+		}
+		if (creationDate != null) {
+			return creationDate.toString();
+		}
+		return feature.getID();
+	}
+
+	private String resolvePointIdentifier(SimpleFeature feature, int coordinateIndex) {
+		Object ogcFid = feature.getAttribute("ogc_fid");
+		String featureId = ogcFid != null ? ogcFid.toString() : feature.getID();
+		return featureId + "#" + (coordinateIndex + 1);
+	}
+
+	private Geometry buildRefGeometry(FeatureCollection<SimpleFeatureType, SimpleFeature> refline) {
+		List<LineString> refLines = new ArrayList<LineString>();
+		FeatureIterator<SimpleFeature> iterator = refline.features();
+		try {
+			while (iterator.hasNext()) {
+				Object geometry = iterator.next().getDefaultGeometry();
+				if (geometry instanceof LineString) {
+					refLines.add((LineString) geometry);
+				}
+			}
+		} finally {
+			iterator.close();
+		}
+		if (refLines.isEmpty()) {
+			return null;
+		}
+		GeometryFactory geometryFactory = refLines.get(0).getFactory();
+		return geometryFactory.createMultiLineString(refLines.toArray(new LineString[0]));
+	}
+
+	public LineString interpolateLineStringConstantStep(LineString line, double step, CoordinateReferenceSystem crs) {
+
+		GeometryFactory gf = new GeometryFactory();
+		Coordinate[] coords = line.getCoordinates();
+
+		List<Coordinate> result = new ArrayList<>();
+		result.add(coords[0]); // on part de la tête du profil
+
+		GeodeticCalculator gc = new GeodeticCalculator(crs);
+
+		double cumulative = 0.0;
+		double target = step;
+
+		for (int i = 1; i < coords.length; i++) {
+
+			// Distance du segment i-1 → i
+			try {
+				gc.setStartingPosition(JTS.toDirectPosition(coords[i - 1], crs));
+				gc.setDestinationPosition(JTS.toDirectPosition(coords[i], crs));
+			} catch (TransformException e) {
+				
+				LOGGER.error("Erreur durant l'interpolation",e);
+				continue; 
+			}
+			double segmentLength = gc.getOrthodromicDistance();
+
+			// Tant que le point recherché cible se trouve dans ce segment :
+			while (cumulative + segmentLength >= target) {
+				double ratio = (target - cumulative) / segmentLength;
+				double x = coords[i - 1].x + ratio * (coords[i].x - coords[i - 1].x);
+				double y = coords[i - 1].y + ratio * (coords[i].y - coords[i - 1].y);
+
+				result.add(new Coordinate(x, y));
+
+				target += step; 
+			}
+
+			cumulative += segmentLength;
+		}
+
+		return gf.createLineString(result.toArray(new Coordinate[0]));
+	}
 	
 	/**
 	 * Do an interpolation for each Feature's Geometry of a FeatureCollection with an interval
@@ -51,8 +201,9 @@ public class BeachProfileTrackingTools {
 	 * @param interval in meters
 	 * @return
 	 */
-	public FeatureCollection<SimpleFeatureType, SimpleFeature> InterpolateFeatureCollection(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, double interval){
-		if(interval <= 0){
+	public FeatureCollection<SimpleFeatureType, SimpleFeature> InterpolateFeatureCollection(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, FeatureCollection<SimpleFeatureType, SimpleFeature> refline, double interval){
+		LOGGER.debug("InterpolateFeatureCollection");
+		if(interval <= 0 || refline == null){
 			return fc;
 		}
 		// load the LineStrings
@@ -61,72 +212,135 @@ public class BeachProfileTrackingTools {
 		try {
 			myCrs = CRS.decode("EPSG:2154"); // fc.getSchema().getCoordinateReferenceSystem();
 		
-		GeometryFactory geometryFactory = new GeometryFactory();
-		DefaultFeatureCollection resultFeatureCollection = null;
-		// get Linestrings order by date
-		Map<Date, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
-		Map<Date, LineString> interpolatedLineStrings = new HashMap<Date,LineString>();
-		
-		// do the interpolation
-		lineStrings.forEach((a,b) -> {
-			if(b.getNumPoints() > 1){
-				Coordinate[] coordinates = b.getCoordinates();
-				LinkedList<Coordinate> newCoordinates = new LinkedList<Coordinate>();				
-				LinkedList<Coordinate> tempList;
-				double offset = 0.0;
-				double totalDist = 0.0;
-				//iterate through each point to create a number of new point between.
-				//the offset is used to stack the distance remained at the end of each interpolation. 
-				// It is then add to the next interpolation
-				//With the offset we are sure to have a new point at the same interval plus the original points between them.
-				for (int i = 1; i < coordinates.length; i++) {
-					GeodeticCalculator gc = new GeodeticCalculator(myCrs);
-					try {
-						LOGGER.debug("CRS {} - Starting position : {}, Destination position : {}", myCrs, coordinates[i-1], coordinates[i]);
-						gc.setStartingPosition(JTS.toDirectPosition(coordinates[i-1], myCrs));
-						gc.setDestinationPosition(JTS.toDirectPosition(coordinates[i], myCrs));
-					} catch (TransformException e) {
-						LOGGER.error("Error while transforming coordinates from {} to {}", coordinates[i-1], coordinates[i], e);
-						//TODO launch exception e.printStackTrace();
-					}
-					double dist = gc.getOrthodromicDistance();
-					totalDist += dist;
-					tempList = BeachProfileUtils.InterpolateCoordinates(offset, interval, coordinates[i-1], coordinates[i], myCrs);
-					if(i != coordinates.length -1) tempList.removeLast();
-					newCoordinates.addAll(tempList);
-					offset = totalDist%interval;
-			    }				
-				//create new linestring containing all the coordinates
-				LineString ls = geometryFactory.createLineString(newCoordinates.toArray(new Coordinate[newCoordinates.size()]));
-				interpolatedLineStrings.put(a, ls);
+			Geometry refGeometry = buildRefGeometry(refline);
+			if (refGeometry == null) {
+				return fc;
 			}
-		});
-		
-		//create a new FeatureCollection to add the new coordinates
-		SimpleFeatureTypeBuilder simpleFeatureTypeBuilder = new SimpleFeatureTypeBuilder();
-		simpleFeatureTypeBuilder.setCRS(myCrs);
-		simpleFeatureTypeBuilder.setName("featureType");
-		simpleFeatureTypeBuilder.add("geometry", LineString.class);
-		simpleFeatureTypeBuilder.add("date", String.class);
+			LengthIndexedLine refIndexed = new LengthIndexedLine(refGeometry);
+			double refLength = BeachProfileUtils.getDistanceFromCoordinates(refGeometry.getCoordinates(), myCrs);
+			List<Double> targetDistances = buildTargetDistances(refLength, interval);
 
-		
-		// init DefaultFeatureCollection
-		SimpleFeatureBuilder simpleFeatureBuilder = new SimpleFeatureBuilder(simpleFeatureTypeBuilder.buildFeatureType());
-		resultFeatureCollection = new DefaultFeatureCollection(null, simpleFeatureBuilder.getFeatureType());
-		// add geometrie to defaultFeatures
-		for (Entry<Date, LineString> entry : interpolatedLineStrings.entrySet())
-		{
-			simpleFeatureBuilder.add(entry.getValue());
-			simpleFeatureBuilder.add(entry.getKey());
-			resultFeatureCollection.add(simpleFeatureBuilder.buildFeature(entry.getKey() + ""));
-		}
-		
-		return resultFeatureCollection;
-		} catch (FactoryException e) {
+			GeometryFactory geometryFactory = new GeometryFactory();
+			DefaultFeatureCollection resultFeatureCollection = null;
+			// get Linestrings order by date
+			Map<Date, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
+			Map<Date, LineString> interpolatedLineStrings = new HashMap<Date,LineString>();
+			
+			// do the interpolation aligned on the reference line
+			lineStrings.forEach((id,line) -> {
+				LineString interpolated = interpolateLineOnReference(line, refIndexed, targetDistances, interval, myCrs);
+				interpolatedLineStrings.put(id, interpolated);
+			});
+			
+			//create a new FeatureCollection to add the new coordinates
+			SimpleFeatureTypeBuilder simpleFeatureTypeBuilder = new SimpleFeatureTypeBuilder();
+			simpleFeatureTypeBuilder.setCRS(myCrs);
+			simpleFeatureTypeBuilder.setName("featureType");
+			simpleFeatureTypeBuilder.add("geometry", LineString.class);
+			simpleFeatureTypeBuilder.add("date", String.class);
+
+			
+			// init DefaultFeatureCollection
+			SimpleFeatureBuilder simpleFeatureBuilder = new SimpleFeatureBuilder(simpleFeatureTypeBuilder.buildFeatureType());
+			resultFeatureCollection = new DefaultFeatureCollection(null, simpleFeatureBuilder.getFeatureType());
+			// add geometrie to defaultFeatures
+			for (Entry<Date, LineString> entry : interpolatedLineStrings.entrySet())
+			{
+				simpleFeatureBuilder.add(entry.getValue());
+				simpleFeatureBuilder.add(entry.getKey());
+				resultFeatureCollection.add(simpleFeatureBuilder.buildFeature(entry.getKey() + ""));
+			}
+			
+			return resultFeatureCollection;
+		} 
+		catch (FactoryException e) {
 			LOGGER.debug("FactoryException",e);
 						
 			return null;
-		} 
+		}
+	}
+
+	private List<Double> buildTargetDistances(double refLength, double interval) {
+		List<Double> targetDistances = new ArrayList<>();
+		double current = 0d;
+		while (current <= refLength) {
+			targetDistances.add(current);
+			current += interval;
+		}
+		if (targetDistances.get(targetDistances.size() - 1) < refLength) {
+			targetDistances.add(refLength);
+		}
+		return targetDistances;
+	}
+
+	private LineString interpolateLineOnReference(LineString line, LengthIndexedLine refIndexed, List<Double> targetDistances, double interval, CoordinateReferenceSystem crs) {
+		if (line == null || refIndexed == null || targetDistances == null || targetDistances.isEmpty()) {
+			return line;
+		}
+
+		double lineLength = BeachProfileUtils.getDistanceFromCoordinates(line.getCoordinates(), crs);
+		if (lineLength == 0) {
+			return line;
+		}
+
+		Coordinate start = line.getCoordinateN(0);
+		double startOnRef = refIndexed.indexOf(start);
+		double endOnRef = refIndexed.indexOf(line.getCoordinateN(line.getNumPoints() - 1));
+		double minRef = Math.min(startOnRef, endOnRef) - (interval * 0.5);
+		double maxRef = Math.max(startOnRef, endOnRef) + (interval * 0.5);
+
+		List<Coordinate> interpolated = new ArrayList<>();
+		for (double targetDistance : targetDistances) {
+			if (targetDistance < minRef) {
+				continue; // line has not started yet on the refline
+			}
+			if (targetDistance > maxRef) {
+				break; // past the end of this line, remaining targets are beyond
+			}
+			double targetOnLine = targetDistance - startOnRef;
+			if (targetOnLine < -interval) {
+				continue;
+			}
+			if (targetOnLine > lineLength + interval) {
+				break;
+			}
+			Coordinate c = interpolateCoordinateAtDistance(line.getCoordinates(), targetOnLine, crs);
+			if (c != null) {
+				interpolated.add(c);
+			}
+		}
+		return line.getFactory().createLineString(interpolated.toArray(new Coordinate[0]));
+	}
+
+	private Coordinate interpolateCoordinateAtDistance(Coordinate[] coords, double targetDistance, CoordinateReferenceSystem crs) {
+		if (coords == null || coords.length == 0 || crs == null) {
+			return null;
+		}
+		if (targetDistance <= 0) {
+			return new Coordinate(coords[0].x, coords[0].y, coords[0].z);
+		}
+
+		double cumulative = 0d;
+		GeodeticCalculator gc = new GeodeticCalculator(crs);
+		for (int i = 1; i < coords.length; i++) {
+			try {
+				gc.setStartingPosition(JTS.toDirectPosition(coords[i - 1], crs));
+				gc.setDestinationPosition(JTS.toDirectPosition(coords[i], crs));
+			} catch (TransformException e) {
+				LOGGER.error("Erreur durant l'interpolation", e);
+				continue;
+			}
+			double segmentLength = gc.getOrthodromicDistance();
+			if (cumulative + segmentLength + 0.0001 >= targetDistance) {
+				double ratio = (targetDistance - cumulative) / segmentLength;
+				double x = coords[i - 1].x + ratio * (coords[i].x - coords[i - 1].x);
+				double y = coords[i - 1].y + ratio * (coords[i].y - coords[i - 1].y);
+				double z = coords[i - 1].z + ratio * (coords[i].z - coords[i - 1].z);
+				return new Coordinate(x, y, z);
+			}
+			cumulative += segmentLength;
+		}
+		return new Coordinate(coords[coords.length - 1].x, coords[coords.length - 1].y, coords[coords.length - 1].z);
 	}
 	
 	/**

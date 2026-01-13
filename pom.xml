@@ -29,7 +29,7 @@
 		</repository>
 	</repositories>
   	
-  	<dependencies>
+	<dependencies>		
 		<dependency>
 			<groupId>org.geotools</groupId>
 			<artifactId>gt-process</artifactId>
@@ -91,5 +91,19 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>  
-  
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.22.2</version>
+        <configuration>
+          <includes>
+            <include>**/*Test.java</include>
+          </includes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>
