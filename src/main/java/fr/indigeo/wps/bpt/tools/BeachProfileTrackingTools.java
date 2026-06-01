@@ -46,8 +46,36 @@ import org.locationtech.jts.linearref.LengthIndexedLine;
 public class BeachProfileTrackingTools {
 
 	private static final Logger LOGGER = LogManager.getLogger(BeachProfileTrackingTools.class);
+	private static final String START_DISTANCE_FIELD = "startdistance";
+	private static final String END_DISTANCE_FIELD = "enddistance";
 
 	public BeachProfileTrackingTools() {}
+
+	private static class ProfileLine {
+		Date date;
+		LineString line;
+		double startDistance;
+		double endDistance;
+
+		ProfileLine(Date date, LineString line, double startDistance, double endDistance) {
+			this.date = date;
+			this.line = line;
+			this.startDistance = startDistance;
+			this.endDistance = endDistance;
+		}
+	}
+
+	private static class InterpolatedProfile {
+		LineString line;
+		double startDistance;
+		double endDistance;
+
+		InterpolatedProfile(LineString line, double startDistance, double endDistance) {
+			this.line = line;
+			this.startDistance = startDistance;
+			this.endDistance = endDistance;
+		}
+	}
 
 	public FeatureCollection<SimpleFeatureType, SimpleFeature> reprojectFeatureCollectionToRefLine(FeatureCollection<SimpleFeatureType, SimpleFeature> fc, FeatureCollection<SimpleFeatureType, SimpleFeature> refline, double distanceMax) {
 		
@@ -220,15 +248,14 @@ public class BeachProfileTrackingTools {
 			double refLength = BeachProfileUtils.getDistanceFromCoordinates(refGeometry.getCoordinates(), myCrs);
 			List<Double> targetDistances = buildTargetDistances(refLength, interval);
 
-			GeometryFactory geometryFactory = new GeometryFactory();
 			DefaultFeatureCollection resultFeatureCollection = null;
 			// get Linestrings order by date
 			Map<Date, LineString> lineStrings = BeachProfileUtils.getProfilesFromFeature(fc);
-			Map<Date, LineString> interpolatedLineStrings = new HashMap<Date,LineString>();
+			Map<Date, InterpolatedProfile> interpolatedLineStrings = new HashMap<Date, InterpolatedProfile>();
 			
 			// do the interpolation aligned on the reference line
 			lineStrings.forEach((id,line) -> {
-				LineString interpolated = interpolateLineOnReference(line, refIndexed, targetDistances, interval, myCrs);
+				InterpolatedProfile interpolated = interpolateLineOnReference(line, refIndexed, targetDistances, interval, myCrs);
 				interpolatedLineStrings.put(id, interpolated);
 			});
 			
@@ -238,16 +265,21 @@ public class BeachProfileTrackingTools {
 			simpleFeatureTypeBuilder.setName("featureType");
 			simpleFeatureTypeBuilder.add("geometry", LineString.class);
 			simpleFeatureTypeBuilder.add("date", String.class);
+			simpleFeatureTypeBuilder.add(START_DISTANCE_FIELD, Double.class);
+			simpleFeatureTypeBuilder.add(END_DISTANCE_FIELD, Double.class);
 
 			
 			// init DefaultFeatureCollection
 			SimpleFeatureBuilder simpleFeatureBuilder = new SimpleFeatureBuilder(simpleFeatureTypeBuilder.buildFeatureType());
 			resultFeatureCollection = new DefaultFeatureCollection(null, simpleFeatureBuilder.getFeatureType());
 			// add geometrie to defaultFeatures
-			for (Entry<Date, LineString> entry : interpolatedLineStrings.entrySet())
+			for (Entry<Date, InterpolatedProfile> entry : interpolatedLineStrings.entrySet())
 			{
-				simpleFeatureBuilder.add(entry.getValue());
+				InterpolatedProfile profile = entry.getValue();
+				simpleFeatureBuilder.add(profile.line);
 				simpleFeatureBuilder.add(entry.getKey());
+				simpleFeatureBuilder.add(profile.startDistance);
+				simpleFeatureBuilder.add(profile.endDistance);
 				resultFeatureCollection.add(simpleFeatureBuilder.buildFeature(entry.getKey() + ""));
 			}
 			
@@ -273,43 +305,40 @@ public class BeachProfileTrackingTools {
 		return targetDistances;
 	}
 
-	private LineString interpolateLineOnReference(LineString line, LengthIndexedLine refIndexed, List<Double> targetDistances, double interval, CoordinateReferenceSystem crs) {
+	private InterpolatedProfile interpolateLineOnReference(LineString line, LengthIndexedLine refIndexed, List<Double> targetDistances, double interval, CoordinateReferenceSystem crs) {
 		if (line == null || refIndexed == null || targetDistances == null || targetDistances.isEmpty()) {
-			return line;
+			return new InterpolatedProfile(line, 0d, 0d);
 		}
 
 		double lineLength = BeachProfileUtils.getDistanceFromCoordinates(line.getCoordinates(), crs);
 		if (lineLength == 0) {
-			return line;
+			return new InterpolatedProfile(line, 0d, 0d);
 		}
 
 		Coordinate start = line.getCoordinateN(0);
 		double startOnRef = refIndexed.indexOf(start);
 		double endOnRef = refIndexed.indexOf(line.getCoordinateN(line.getNumPoints() - 1));
-		double minRef = Math.min(startOnRef, endOnRef) - (interval * 0.5);
-		double maxRef = Math.max(startOnRef, endOnRef) + (interval * 0.5);
+		double minRef = Math.min(startOnRef, endOnRef);
+		double maxRef = Math.max(startOnRef, endOnRef);
+		boolean sameDirection = startOnRef <= endOnRef;
 
 		List<Coordinate> interpolated = new ArrayList<>();
+		interpolated.add(sameDirection ? line.getCoordinateN(0) : line.getCoordinateN(line.getNumPoints() - 1));
 		for (double targetDistance : targetDistances) {
-			if (targetDistance < minRef) {
+			if (targetDistance <= minRef) {
 				continue; // line has not started yet on the refline
 			}
-			if (targetDistance > maxRef) {
+			if (targetDistance >= maxRef) {
 				break; // past the end of this line, remaining targets are beyond
 			}
-			double targetOnLine = targetDistance - startOnRef;
-			if (targetOnLine < -interval) {
-				continue;
-			}
-			if (targetOnLine > lineLength + interval) {
-				break;
-			}
+			double targetOnLine = sameDirection ? targetDistance - startOnRef : startOnRef - targetDistance;
 			Coordinate c = interpolateCoordinateAtDistance(line.getCoordinates(), targetOnLine, crs);
 			if (c != null) {
 				interpolated.add(c);
 			}
 		}
-		return line.getFactory().createLineString(interpolated.toArray(new Coordinate[0]));
+		interpolated.add(sameDirection ? line.getCoordinateN(line.getNumPoints() - 1) : line.getCoordinateN(0));
+		return new InterpolatedProfile(line.getFactory().createLineString(interpolated.toArray(new Coordinate[0])), minRef, maxRef);
 	}
 
 	private Coordinate interpolateCoordinateAtDistance(Coordinate[] coords, double targetDistance, CoordinateReferenceSystem crs) {
@@ -352,8 +381,6 @@ public class BeachProfileTrackingTools {
 	 * @return
 	 */
 	public FeatureCollection<SimpleFeatureType, SimpleFeature> sedimentaryBalanceCalc(FeatureCollection<SimpleFeatureType, SimpleFeature> profile, boolean useSmallestDistance, double minDist, double maxDist) {
-		Coordinate[] coordinates = null;
-		
 		// load the LineStrings
 		// With geoserver 2.21.5 version CRS give WGS84 instead of 2154
 		CoordinateReferenceSystem myCrs;
@@ -371,63 +398,70 @@ public class BeachProfileTrackingTools {
 			SimpleFeatureBuilder builder = new SimpleFeatureBuilder(type);		
 			DefaultFeatureCollection dfc = new DefaultFeatureCollection();
 			
-			Map<Date, LineString> refProfile = BeachProfileUtils.getProfilesFromFeature(profile);
-			double refProfileArea = 0;
+			List<ProfileLine> refProfile = getProfileLinesFromFeature(profile, myCrs);
 			double lastProfileArea = 0;
 			double tempProfileArea = 0;
-			double tempProfileDist = 0;
 			double totalEvolution = 0;
-			double tempMaxDist = 0;
+			double effectiveMinDist = minDist;
+			double effectiveMaxDist = maxDist;
+			boolean hasReferenceProfile = false;
+
+			if(refProfile.isEmpty()) {
+				return dfc;
+			}
+
+			ProfileLine firstProfile = refProfile.get(0);
+			if(useSmallestDistance) {
+				effectiveMinDist = Math.max(effectiveMinDist, refProfile.stream().mapToDouble(p -> p.startDistance).max().orElse(effectiveMinDist));
+				if(effectiveMaxDist <= 0) {
+					effectiveMaxDist = refProfile.stream().mapToDouble(p -> p.endDistance).min().orElse(firstProfile.endDistance);
+				}
+				else {
+					effectiveMaxDist = Math.min(effectiveMaxDist, refProfile.stream().mapToDouble(p -> p.endDistance).min().orElse(effectiveMaxDist));
+				}
+			}
+			else if(effectiveMaxDist <= 0) {
+				effectiveMinDist = Math.max(effectiveMinDist, firstProfile.startDistance);
+				effectiveMaxDist = firstProfile.endDistance;
+			}
 
 			// For each profile 
-			for (Entry<Date, LineString> entry : refProfile.entrySet()) {
-				coordinates = entry.getValue().getCoordinates();
-			
-				LOGGER.debug("Calulation for date {}", entry.getKey().toString());
-				if(refProfileArea == 0){
-					//if we don't specify maxDist, check ignoreDateWithLessDist					
-					//if useSmallestDistance is false, ignore the feature with a distance less than the distance of the first date
-					//else if useSmallestDistance is true, use the smallest distance of all features
-					tempMaxDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates, myCrs);
-					if(useSmallestDistance){
-						LOGGER.debug("Use smallestDistance {}", useSmallestDistance);
-						// vérification par rapport aux autres profils
-						for (Entry<Date, LineString> entry2 : refProfile.entrySet()) {
-							double dist = BeachProfileUtils.getDistanceFromCoordinates(entry2.getValue().getCoordinates(), myCrs);
-							tempMaxDist = dist < tempMaxDist ? dist : tempMaxDist;						
-						}
-					}
-					//handle min/max issues
-					if(maxDist > tempMaxDist || maxDist <= 0) maxDist = tempMaxDist;
-					if(minDist < 0) minDist = 0;
-					if(minDist >= maxDist) minDist = 0;					
-				
-					refProfileArea = lastProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs);
+			for (ProfileLine entry : refProfile) {
+				LOGGER.debug("Calulation for date {}", entry.date.toString());
+				if(entry.startDistance > effectiveMinDist + 0.001 || entry.endDistance < effectiveMaxDist - 0.001) {
+					LOGGER.debug("{} | [{}, {}] | profile does not cover calculation interval [{}, {}]", entry.date.toString(), entry.startDistance, entry.endDistance, effectiveMinDist, effectiveMaxDist);
+					continue;
+				}
+
+				double localMinDist = Math.max(0d, effectiveMinDist - entry.startDistance);
+				double localMaxDist = effectiveMaxDist - entry.startDistance;
+				if(localMinDist >= localMaxDist) {
+					LOGGER.debug("{} | invalid local calculation interval [{}, {}]", entry.date.toString(), localMinDist, localMaxDist);
+					continue;
+				}
+
+				if(!hasReferenceProfile){
+					lastProfileArea = BeachProfileUtils.getProfileArea(entry.line.getCoordinates(), localMinDist, localMaxDist, myCrs);
 					//write the result. For the first date we don't have evolutions values so we add a 0 value
-					builder.add(entry.getKey().toString());
+					builder.add(entry.date.toString());
 					builder.add(lastProfileArea);
 					builder.add(0);
 					builder.add(0);
 					SimpleFeature sf = builder.buildFeature(null);
 					dfc.add(sf);
+					hasReferenceProfile = true;
 				}
 				else{
-					tempProfileDist = BeachProfileUtils.getDistanceFromCoordinates(coordinates, myCrs);
-					if(tempProfileDist < maxDist){
-						LOGGER.debug(entry.getKey().toString() + " | " + tempProfileDist + " | distance at this date is less than the distance wanted");
-					}
-					else{
-						tempProfileArea = BeachProfileUtils.getProfileArea(coordinates, minDist, maxDist, myCrs);
-						totalEvolution += (tempProfileArea - lastProfileArea);
-						//write the results
-						builder.add(entry.getKey().toString());
-						builder.add(tempProfileArea);
-						builder.add((tempProfileArea - lastProfileArea));
-						builder.add(totalEvolution);
-						SimpleFeature sf = builder.buildFeature(null);
-						dfc.add(sf);
-						lastProfileArea = tempProfileArea;
-					}		
+					tempProfileArea = BeachProfileUtils.getProfileArea(entry.line.getCoordinates(), localMinDist, localMaxDist, myCrs);
+					totalEvolution += (tempProfileArea - lastProfileArea);
+					//write the results
+					builder.add(entry.date.toString());
+					builder.add(tempProfileArea);
+					builder.add((tempProfileArea - lastProfileArea));
+					builder.add(totalEvolution);
+					SimpleFeature sf = builder.buildFeature(null);
+					dfc.add(sf);
+					lastProfileArea = tempProfileArea;
 				}
 			}
 			
@@ -436,6 +470,64 @@ public class BeachProfileTrackingTools {
 			LOGGER.error("FactoryException",e1);	
 			return null;
 		}
+	}
+
+	private List<ProfileLine> getProfileLinesFromFeature(FeatureCollection<SimpleFeatureType, SimpleFeature> featureCollection, CoordinateReferenceSystem crs) {
+		List<ProfileLine> profileLines = new ArrayList<ProfileLine>();
+		FeatureIterator<SimpleFeature> iterator = featureCollection.features();
+		try {
+			while (iterator.hasNext()) {
+				SimpleFeature feature = iterator.next();
+				Geometry geometry = (Geometry) feature.getDefaultGeometry();
+				if (!(geometry instanceof LineString)) {
+					continue;
+				}
+
+				Date date = resolveDate(feature);
+				if (date == null) {
+					continue;
+				}
+
+				LineString line = (LineString) geometry;
+				double startDistance = readDoubleAttribute(feature, START_DISTANCE_FIELD, 0d);
+				double endDistance = readDoubleAttribute(feature, END_DISTANCE_FIELD, startDistance + BeachProfileUtils.getDistanceFromCoordinates(line.getCoordinates(), crs));
+				profileLines.add(new ProfileLine(date, line, startDistance, endDistance));
+			}
+		} finally {
+			iterator.close();
+		}
+		profileLines.sort((left, right) -> left.date.compareTo(right.date));
+		return profileLines;
+	}
+
+	private Date resolveDate(SimpleFeature feature) {
+		Collection<Property> properties = feature.getProperties();
+		for (Property property : properties){
+			if ( property.getValue() instanceof Date){
+				return (Date) property.getValue();
+			}
+			try {
+				return new SimpleDateFormat("yyyy-MM-dd").parse(property.getValue().toString());
+			} catch (ParseException e) {
+				// Keep looking for a parseable date.
+			}
+		}
+		return null;
+	}
+
+	private double readDoubleAttribute(SimpleFeature feature, String name, double defaultValue) {
+		Object value = feature.getAttribute(name);
+		if (value instanceof Number) {
+			return ((Number) value).doubleValue();
+		}
+		if (value != null) {
+			try {
+				return Double.parseDouble(value.toString());
+			} catch (NumberFormatException e) {
+				LOGGER.debug("Unable to parse {} as double", name, e);
+			}
+		}
+		return defaultValue;
 	}
 
 	/**
